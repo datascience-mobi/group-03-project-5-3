@@ -1,2 +1,23 @@
-# project-05-group-03
-group-03-project-5-3 created by GitHub Classroom
+---
+title: "Bioinformatik Projekt"
+author: "Leo Burmedi, Pierre De Marinis, Konstantin Fischer and Daniel Ürge"
+date: "April 29, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here is an example summary of a dataset:
+
+```{r cars}
+summary(cars)
+```
+
+Here is an example plot:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
