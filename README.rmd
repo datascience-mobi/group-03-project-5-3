@@ -1,7 +1,7 @@
 ---
 title: "Bioinformatik Projekt"
 author: "Leo Burmedi, Pierre De Marinis, Konstantin Fischer and Daniel Ürge"
-date: "April 29, 2019"
+date: "Started April 29, 2019"
 output: html_document
 ---
 
@@ -17,7 +17,7 @@ summary(cars)
 
 Here is an example plot:
 
-```{r pressure, echo=FALSE}
+```{r pressure, echo=TRUE}
 plot(pressure)
 ```
 
