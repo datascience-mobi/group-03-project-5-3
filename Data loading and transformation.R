@@ -5,8 +5,6 @@ genes_data_frame <- input_data$genes
 promoters_data_frame <- input_data$promoters
 cpgislands_data_frame <- input_data$cpgislands
 tiling_data_frame <- input_data$tiling
-# Calculating the length of each gene.
-genes_length <- data.frame(genes_data_frame$End - genes_data_frame$Start)
 # Creating new matrixes with only one group of patients, either beta values of coverage.
 g_AMLpat.bed <- genes_data_frame[,11:20]
 g_Monopat.bed <- genes_data_frame[,21:30]
