@@ -1,11 +1,14 @@
 # Loading the data and naming the frames.
 AML_Mono_list <- readRDS("~/Heidelberg/Uni/FS4 2019/Bioinfo/AMLvsMono/AML_Mono_list.RDS")
 input_data <- AML_Mono_list
-genes_data_frame <- input_data$genes
-promoters_data_frame <- input_data$promoters
+genes_data_framex <- input_data$genes
+promoters_data_framex <- input_data$promoters
 cpgislands_data_frame <- input_data$cpgislands
 tiling_data_frame <- input_data$tiling
-# Creating new matrixes with only one group of patients, either beta values of coverage.
+# Removing chromosome X, because of hypermethylation.
+genes_data_frame <- data.frame(genes_data_framex[-which(genes_data_framex$Chromosome == "chrX"),])
+promoters_data_frame <- data.frame(promoters_data_frame[-which(promoters_data_frame$Chromosome == "chrX"),])
+# Creating new matrixes with only one group of patients, either beta values or coverage.
 g_AMLpat.bed <- genes_data_frame[,11:20]
 g_Monopat.bed <- genes_data_frame[,21:30]
 g_AMLpat.cov <- genes_data_frame[,31:40]
@@ -19,4 +22,3 @@ g_Mono.covmean <- data.frame(rowMeans(g_Monopat.cov))
 # Conjoining datasets with different patients, with average coverage value for each gene. 
 g_AML <- cbind(g_AMLpat.bed, g_AML.covmean)
 g_Mono <- cbind(g_Monopat.bed, g_Mono.covmean)
-
