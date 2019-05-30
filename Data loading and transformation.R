@@ -6,10 +6,8 @@ promoters_data_framexy <- input_data$promoters
 cpgislands_data_frame <- input_data$cpgislands
 tiling_data_frame <- input_data$tiling
 # Removing chromosome X, because of hypermethylation. And chromosome Y because of lack of male patients.
-genes_data_framey <- data.frame(genes_data_framexy[!(genes_data_framexy$Chromosome == "chrX"),])
-promoters_data_framey <- data.frame(promoters_data_framexy[!(promoters_data_framexy$Chromosome == "chrX"),])
-genes_data_frame <- data.frame(genes_data_framey[!(genes_data_framey$Chromosome == "chrY"),])
-promoters_data_frame <- data.frame(promoters_data_framey[!(promoters_data_framey$Chromosome == "chrY"),])
+genes_data_frame <- data.frame(genes_data_framexy[!(genes_data_framexy$Chromosome == "chrX" | genes_data_framexy$Chromosome == "chrY"),])
+promoters_data_frame <- data.frame(promoters_data_framexy[!(promoters_data_framexy$Chromosome == "chrX" | promoters_data_framexy$Chromosome == "chrY"),])
 # Creating new matrixes with only one group of patients, either beta values or coverage.
 g_AMLpat.bed <- genes_data_frame[,11:20]
 g_Monopat.bed <- genes_data_frame[,21:30]
