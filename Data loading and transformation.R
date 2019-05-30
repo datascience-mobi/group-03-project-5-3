@@ -31,5 +31,5 @@ g_Mono <- cbind(g_Monopat.bed, g_Mono.covmean)
 g_Monona <- data.frame(rowSums(is.na(g_Monopat.bed)))
 g_AMLna <- data.frame(rowSums(is.na(g_AMLpat.bed)))
 g_bednasum <- data.frame(cbind(genes_data_frame[,11:50], g_AMLna, g_Monona))
-g_cleanna <- g_bednasum[!(g_bednasum$rowSums.is.na.g_AMLpat.bed.. > 4 & g_bednasum$rowSums.is.na.g_Monopat.bed.. > 4),]
+g_cleanna <- g_bednasum[!(g_bednasum$rowSums.is.na.g_AMLpat.bed.. > 4 | g_bednasum$rowSums.is.na.g_Monopat.bed.. > 4),]
 Z <- g_cleanna[, c(1:40)]
