@@ -28,6 +28,6 @@ g_Mono <- cbind(g_Monopat.bed, g_Mono.covmean)
 #Removing lines with more than 4 NAs from the beta values in both patient groups.
 g_Monona <- data.frame(rowSums(is.na(g_Monopat.bed)))
 g_AMLna <- data.frame(rowSums(is.na(g_AMLpat.bed)))
-g_bednasum <- cbind(g_Monopat.bed, g_AMLpat.bed, g_AMLna, g_Monona)
+g_bednasum <- data.frame(cbind(genes_data_frame[,11:50], g_AMLna, g_Monona))
 g_cleanna <- g_bednasum[!(g_bednasum$rowSums.is.na.g_AMLpat.bed.. > 4 & g_bednasum$rowSums.is.na.g_Monopat.bed.. > 4),]
-Z <- g_cleanna[, c(1:20)]
+Z <- g_cleanna[, c(1:40)]
