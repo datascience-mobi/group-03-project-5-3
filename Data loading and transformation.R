@@ -5,7 +5,7 @@ genes_data_framexy <- input_data$genes
 promoters_data_framexy <- input_data$promoters
 cpgislands_data_frame <- input_data$cpgislands
 tiling_data_frame <- input_data$tiling
-# Removing chromosome X, because of hypermethylation.
+# Removing chromosome X, because of hypermethylation. And chromosome Y because of lack of male patients.
 genes_data_framey <- data.frame(genes_data_framexy[!(genes_data_framexy$Chromosome == "chrX"),])
 promoters_data_framey <- data.frame(promoters_data_framexy[!(promoters_data_framexy$Chromosome == "chrX"),])
 genes_data_frame <- data.frame(genes_data_framey[!(genes_data_framey$Chromosome == "chrY"),])
