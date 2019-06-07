@@ -13,9 +13,12 @@ g_AMLpat.bed <- genes_data_frame[,11:20]
 g_Monopat.bed <- genes_data_frame[,21:30]
 g_AMLpat.cov <- genes_data_frame[,31:40]
 g_Monopat.cov <- genes_data_frame[,41:50]
-# All coverage values in one dataframe for better plotting.
+
+# All coverage values in one dataframe, for better plotting.
 g_covall <- genes_data_frame[,31:50]
-coverage_all <- data.frame(Coverage = c(t(g_covall)))
+p_covall <- promoters_data_frame[,31:50]
+g_coverage_all <- data.frame(Coverage = c(t(g_covall)))
+p_coverage_all <- data.frame(Coverage = c(t(p_covall)))
 # Calculating the mean coverage and beta values for AML and Mono patients for each gene.
 # Might be handy later, but the NAs still have to be handled.
 g_Mono.bedmean <- data.frame(rowMeans(g_Monopat.bed))
