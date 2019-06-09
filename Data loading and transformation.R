@@ -28,12 +28,16 @@ g_Mono.covmean <- data.frame(rowMeans(g_Monopat.cov))
 # Conjoining datasets with different patients, with average coverage value for each gene. 
 g_AML <- cbind(g_AMLpat.bed, g_AML.covmean)
 g_Mono <- cbind(g_Monopat.bed, g_Mono.covmean)
+p_patients <- data.frame(promoters_data_frame[11:50])
+
 #Removing lines with more than 4 NAs from the beta values in both patient groups.
 g_Monona <- data.frame(rowSums(is.na(g_Monopat.bed)))
 g_AMLna <- data.frame(rowSums(is.na(g_AMLpat.bed)))
 g_bednasum <- data.frame(cbind(genes_data_frame[,11:50], g_AMLna, g_Monona))
 g_cleanna <- g_bednasum[!(g_bednasum$rowSums.is.na.g_AMLpat.bed.. > 4 | g_bednasum$rowSums.is.na.g_Monopat.bed.. > 4),]
 Z <- g_cleanna[, c(1:40)]
+p_cleanna <-  p_patients[!(rowSums(is.na(p_patients[1:10]) > 4)  |
+                             rowSums(is.na(p_patients[11:20])) > 4 ) , ]
 # Changing all beta values with corresponding coverage value <30 into NA
 for (j in 21:40) {
   for (i in 1:nrow(Z)) {
@@ -41,6 +45,18 @@ for (j in 21:40) {
     if(Z[i,j] < 30){
       Z[i,j-20] <- NA
     }}}
+# Removing coverage threshold of 30 by promoters.
+for (j in 21:40) {
+  for (i in 1:nrow(p_cleanna)) {
+    
+    if(p_cleanna[i,j] < 30){
+      p_cleanna[i,j-20] <- NA
+    }}}
+
+Z_promoters.clean <- p_cleanna[!(rowSums(is.na(p_cleanna[1:10]) > 4)  |
+                                   rowSums(is.na(p_cleanna[11:20])) > 4 ) , ]
+
+remove(i, j)
 
 # Cleaning up newly gained Z data frame from rows with more then 4 NA´s
 Z.nasum <- data.frame(cbind(Z, rowSums(is.na(Z[,1:10])), rowSums(is.na(Z[,11:20]))))

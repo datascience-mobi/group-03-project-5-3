@@ -31,3 +31,48 @@
     if(percent_genes_remain >= 0.85) {
       print(paste("yay!"))
     }
+    
+# The hyperloop for finding the upper threshold for genes.
+    analyse <- Z_clean
+    for (j in 1:20) {
+      for (i in 1:nrow(analyse)) {
+        if (is.na(analyse[i, j]))
+        {
+          analyse[i, j + 20] <- NA
+        }
+      }
+    }
+    
+    for (j in 1:20) {
+      for (i in 1:nrow(analyse)) {
+        if (is.na(analyse[i, j]))
+        {
+          analyse[i, j] <- -1
+        }
+      }
+    }
+    
+    
+    a <- seq(42000, 48000, 60)
+    Z.for.counting.rows <- analyse
+    vector.remaining.genes.per.coverage <- 0
+    nrow_Z <- nrow(Z.for.counting.rows)
+    for (y in a) {
+      for (j in 21:40) {
+        for (i in 1:nrow(Z.for.counting.rows)) {
+          if (!(is.na(Z.for.counting.rows[i, j]))) {
+            if (Z.for.counting.rows[i, j] < y)        {
+              Z.for.counting.rows[i, j - 20] <- NA
+            }
+          }
+        }
+      }
+      print(nrow(analyse))
+      Z.for.counting.rows <-
+        Z.for.counting.rows[!(rowSums(is.na(Z.for.counting.rows[1:10])) > 5 &
+                                rowSums(is.na(Z.for.counting.rows[11:20])) > 5) , ]
+      nrow.cut.genes <- (nrow_Z - nrow(Z.for.counting.rows))
+      print(nrow.cut.genes)
+      vector.remaining.genes.per.coverage <-
+        c(vector.remaining.genes.per.coverage, nrow.cut.genes)
+    }
