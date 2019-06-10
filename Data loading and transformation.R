@@ -63,29 +63,3 @@ Z.nasum <- data.frame(cbind(Z, rowSums(is.na(Z[,1:10])), rowSums(is.na(Z[,11:20]
 Z_clean <- Z.nasum[!(Z.nasum$rowSums.is.na.Z...1.10... > 4 | Z.nasum$rowSums.is.na.Z...11.20... > 4),]
 Z_clean <- Z_clean[,1:40]
 remove(Z.nasum, Z, i, j)
-
-# Calculating the percentage of lost genes per coverage value
-Z_clean.backup <- Z_clean
-vector.remaining.genes.per.coverage <- 0
-for (y in c(70000, 71000, 80000)) {
-  for (j in 21:40) {
-    for (i in 1:nrow(Z_clean)) {
-      
-      if(Z_clean[i,j] > y){
-        Z_clean[i,j-20] <- NA
-      }}}
-  print(nrow(Z_clean))
-  Z.nasum <- data.frame(cbind(Z_clean, rowSums(is.na(Z_clean[,1:10])), rowSums(is.na(Z_clean[,11:20]))))
-  Z.for.counting.rows <- Z.nasum[!(Z.nasum$rowSums.is.na.Z_clean...1.10... > 4 | Z.nasum$rowSums.is.na.Z_clean...11.20... > 4),]
-  print(nrow(Z.for.counting.rows))
-  vector.remaining.genes.per.coverage <- c(vector.remaining.genes.per.coverage, nrow(Z.for.counting.rows))
-  remove(Z.for.counting.rows, Z.nasum)
-  Z_clean <- Z_clean.backup
-} 
-remove(y, i, j)
-vector.remaining.genes.per.coverage <- vector.remaining.genes.per.coverage[-(1:1)]
-vector.remaining.genes.percentage.coverage <- vector.remaining.genes.per.coverage/nrow(Z_clean)
-# Naming vector values
-remaining.genes.corresponding.to.coverage <- cbind(c(70000, 71000, 80000), vector.remaining.genes.percentage.coverage, vector.remaining.genes.per.coverage)
-colnames(remaining.genes.corresponding.to.coverage) <- c("Coverage value", "Remaining percentage genes", "Remaining count of genes")
-View(remaining.genes.corresponding.to.coverage)
