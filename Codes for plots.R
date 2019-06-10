@@ -1,18 +1,13 @@
 # Distribution of all Coverage Values in log10: 
     plot(density(log10(coverage_all$Coverage)), main = "Distribution of coverage values")
-# Drawing a "if we make this the maximum coverage value we keep this % of objects" plot: 
+
+    # Drawing a "if we make this the maximum coverage value we keep this % of objects" plot: 
     P = seq(0,1, 0.001)
     Y = seq(0, 200000, 1)
     Q = ecdf(g_AML.covmean$rowMeans.g_AMLpat.cov.) (Y)
     plot(Y, Q, type = "n", main = "quantiles for coverage values")
     lines(Y, Q)
-# Drawing the Kneedle algorithm inspired transformation, D is the difference between the kneedle slope line and the second plot
-    slope_kneedle_line = max(coverage_all$Coverage)
-    D <- (Q - (Y/slope_kneedle_line))
-    lines(Y, D)
-    abline(h = max(D), col= "red")
-    knee_cut_cov = max(D)
-    knee_cut_cov
+
 # Printing how many genes will remain in the data set if only all values above knee_cut_cov are cut according to similar criteria as were used in "Data loading and transformation" (that code must be executed first)
     for (j in 21:40) {
       for (i in 1:nrow(Z)) {
@@ -76,3 +71,89 @@
       vector.remaining.genes.per.coverage <-
         c(vector.remaining.genes.per.coverage, nrow.cut.genes)
     }
+    
+#Doing a Kneedle evaluation of a Hyperloop Output
+    #Determining Kneedle m
+    HyperloopResults_Number <- data.frame(vector.remaining.genes.per.coverage)
+    
+    HyperloopResults_Number <- HyperloopResults_Number[2:(nrow(HyperloopResults_Number)),]
+    HyperloopResults_Number <- cbind(HyperloopResults_Number, a)
+    HyperloopResults_Number <- data.frame(HyperloopResults_Number)
+    
+    names(HyperloopResults_Number)[names(HyperloopResults_Number) == "HyperloopResults_Number"] <- "Remaining.count.of.genes"
+    names(HyperloopResults_Number)[names(HyperloopResults_Number) == "a"] <- "Coverage.value"
+    HyperloopResults_NumberBackup <- HyperloopResults_Number
+    
+    
+    X2 <- max(HyperloopResults_Number$Coverage.value)
+    X1 <- min(HyperloopResults_Number$Coverage.value)
+    Y2 <- max(HyperloopResults_Number$Remaining.count.of.genes)
+    Y1 <- min(HyperloopResults_Number$Remaining.count.of.genes) #CAREFUL, you may need to shorten HyperloopResults_Number to the last increment at which all genes are included
+    
+    kneedle.m <- ((Y2-Y1)/(X2-X1))
+    
+    #Determining Kneedle Line, Kneedle Line to remaining gene count difference and cbinding
+    kneedle.line <- ((HyperloopResults_Number$Coverage.value-X1)*kneedle.m)
+    HyperloopResults_Number <- cbind(HyperloopResults_Number, kneedle.line)
+    
+    kneedle.difference <- (HyperloopResults_Number$Remaining.count.of.genes - HyperloopResults_Number$kneedle.line)
+    HyperloopResults_Number <- cbind(HyperloopResults_Number, kneedle.difference)
+    
+    #Plotting
+    plot(HyperloopResults_Number$Coverage.value, HyperloopResults_Number$Remaining.count.of.genes, type = "n")
+    lines(HyperloopResults_Number$Coverage.value, HyperloopResults_Number$Remaining.count.of.genes)
+    lines(HyperloopResults_Number$Coverage.value, HyperloopResults_Number$kneedle.line)
+    lines(HyperloopResults_Number$Coverage.value, HyperloopResults_Number$kneedle.difference)
+    #Make sure to manually check the maximum of HyperloopResults_Number$kneedle.difference and check the corresponding coverage value!
+    
+#Doing a Kneedle Evaluation of a HyRes Hyperloop Output for already exisitng Hyperloop Results
+    # To use this code, make sure to replace "_Number" with something to differentiate it from the original Hyperloop Results
+    HyperloopResults_Number <- data.frame(vector.remaining.genes.per.coverage)
+    
+    HyperloopResults_Number <- HyperloopResults_Number[2:(nrow(HyperloopResults_Number)),]
+    HyperloopResults_Number <- cbind(HyperloopResults_Number, a)
+    HyperloopResults_Number <- data.frame(HyperloopResults_Number)
+    
+    names(HyperloopResults_Number)[names(HyperloopResults_Number) == "HyperloopResults_Number"] <- "Remaining.count.of.genes"
+    names(HyperloopResults_Number)[names(HyperloopResults_Number) == "a"] <- "Coverage.value"
+    HyperloopResults_NumberBackup <- HyperloopResults_Number
+    
+    #Determining Kneedle Line, Kneedle Line to remaining gene count difference and cbinding
+    kneedle.line <- ((HyperloopResults_Number$Coverage.value-X1)*kneedle.m)
+    HyperloopResults_Number <- cbind(HyperloopResults_Number, kneedle.line)
+    
+    kneedle.difference <- (HyperloopResults_Number$Remaining.count.of.genes - HyperloopResults_Number$kneedle.line)
+    HyperloopResults_Number <- cbind(HyperloopResults_Number, kneedle.difference)
+    
+    #Plotting, make sure to plot in the range of a. xlim = c(min(a),max(a)), similar for ylim
+    plot(HyperloopResults_Number$Coverage.value, HyperloopResults_Number$kneedle.difference, type = "n")
+    lines(HyperloopResults_Number$Coverage.value, HyperloopResults_Number$kneedle.difference)
+    #Make sure to manually check the maximum of HyperloopResults_Number$kneedle.difference and check the corresponding coverage value!
+    #Feel free to plot the old kneedle difference too by copyng the line above this one and changing the referenced Data Frame
+    
+# Calculating the percentage of lost genes per coverage value - Gigaloop
+    Z_clean.backup <- Z_clean
+    vector.remaining.genes.per.coverage <- 0
+    for (y in c(70000, 71000, 80000)) {
+      for (j in 21:40) {
+        for (i in 1:nrow(Z_clean)) {
+          
+          if(Z_clean[i,j] > y){
+            Z_clean[i,j-20] <- NA
+          }}}
+      print(nrow(Z_clean))
+      Z.nasum <- data.frame(cbind(Z_clean, rowSums(is.na(Z_clean[,1:10])), rowSums(is.na(Z_clean[,11:20]))))
+      Z.for.counting.rows <- Z.nasum[!(Z.nasum$rowSums.is.na.Z_clean...1.10... > 4 | Z.nasum$rowSums.is.na.Z_clean...11.20... > 4),]
+      print(nrow(Z.for.counting.rows))
+      vector.remaining.genes.per.coverage <- c(vector.remaining.genes.per.coverage, nrow(Z.for.counting.rows))
+      remove(Z.for.counting.rows, Z.nasum)
+      Z_clean <- Z_clean.backup
+    } 
+    remove(y, i, j)
+    vector.remaining.genes.per.coverage <- vector.remaining.genes.per.coverage[-(1:1)]
+    vector.remaining.genes.percentage.coverage <- vector.remaining.genes.per.coverage/nrow(Z_clean)
+    # Naming vector values
+    remaining.genes.corresponding.to.coverage <- cbind(c(70000, 71000, 80000), vector.remaining.genes.percentage.coverage, vector.remaining.genes.per.coverage)
+    colnames(remaining.genes.corresponding.to.coverage) <- c("Coverage value", "Remaining percentage genes", "Remaining count of genes")
+    View(remaining.genes.corresponding.to.coverage)
+    
