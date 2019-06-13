@@ -19,12 +19,7 @@ g_covall <- genes_data_frame[,31:50]
 p_covall <- promoters_data_frame[,31:50]
 g_coverage_all <- data.frame(Coverage = c(t(g_covall)))
 p_coverage_all <- data.frame(Coverage = c(t(p_covall)))
-# Calculating the mean coverage and beta values for AML and Mono patients for each gene.
-# Might be handy later, but the NAs still have to be handled.
-g_Mono.bedmean <- data.frame(rowMeans(g_Monopat.bed))
-g_AML.bedmean <- data.frame(rowMeans(g_Monopat.bed))
-g_AML.covmean <- data.frame(rowMeans(g_AMLpat.cov))
-g_Mono.covmean <- data.frame(rowMeans(g_Monopat.cov))
+
 # Conjoining datasets with different patients, with average coverage value for each gene. 
 g_AML <- cbind(g_AMLpat.bed, g_AML.covmean)
 g_Mono <- cbind(g_Monopat.bed, g_Mono.covmean)
@@ -38,7 +33,7 @@ g_cleanna <- g_bednasum[!(g_bednasum$rowSums.is.na.g_AMLpat.bed.. > 4 | g_bednas
 g_cleanna <- g_cleanna[, c(1:40)]
 p_cleanna <-  p_patients[!(rowSums(is.na(p_patients[1:10]) > 4)  |
                              rowSums(is.na(p_patients[11:20])) > 4 ) , ]
-# Changing all beta values with corresponding coverage value <30 and >95158 into NA
+# Changing all beta values of genes with corresponding coverage value <30 and >95158 into NA
 for (j in 21:40) {
   for (i in 1:nrow(g_cleanna)) {
     
@@ -48,7 +43,7 @@ for (j in 21:40) {
     if(g_cleanna[i,j] > 95158){
       g_cleanna[i,j-20] <- NA
     }}}
-# Removing coverage threshold of 30 by promoters.
+# Changing all beta values of promoterss with corresponding coverage value <30 and >14140 into NA
 for (j in 21:40) {
   for (i in 1:nrow(p_cleanna)) {
     
@@ -60,94 +55,92 @@ for (j in 21:40) {
     }
   }}
 
-promoters.clean <- p_cleanna[!(rowSums(is.na(p_cleanna[1:10])) > 4  |
+# Cleaning up newly gained data frame from rows with more then 4 NA´s
+promoters_clean <- p_cleanna[!(rowSums(is.na(p_cleanna[1:10])) > 4  |
                                  rowSums(is.na(p_cleanna[11:20])) > 4 ), ]
+genes_clean <- g_patients[!(rowSums(is.na(g_patients[1:10])) > 4 | 
+                              rowSums(is.na(g_patients[11:20])) > 4),  ]
 
-
-# Cleaning up newly gained Z data frame from rows with more then 4 NA´s
-genes.clean <- g_cleanna[!(rowSums(is.na(g_cleanna[1:10])) > 4 | rowSums(is.na(g_cleanna[11:20])) > 4),  ]
-
-#Converting beta values into M values for promoters
-
-g.normalization <- genes.clean[,1:20]
-g.normalization.backup <- g.normalization
+# Converting beta values into M values for promoters
+g_normalization <- genes_clean[,1:20]
+g_normalization_backup <- g_normalization
 
 for(j in 1:20){
-  for (i in 1:nrow(g.normalization)){
+  for (i in 1:nrow(g_normalization)){
     
-    if(is.na(g.normalization[i, j])){
+    if(is.na(g_normalization[i, j])){
       
     }
     
     else{
       
-      if(g.normalization[i, j] == 1){
-        g.normalization[i, j] <- 0.9999999999
+      if(g_normalization[i, j] == 1){
+        g_normalization[i, j] <- 0.9999999999
       }
-      if(g.normalization[i, j] == 0) {
-        g.normalization[i, j] <- 0.0000000001
+      if(g_normalization[i, j] == 0) {
+        g_normalization[i, j] <- 0.0000000001
       }
       
-      g.normalization[i, j] = log2(g.normalization[i, j] / (1 - g.normalization[i, j]))
+      g_normalization[i, j] = log2(g_normalization[i, j] / (1 - g_normalization[i, j]))
     }
   }}
-g.Mvalues <- g.normalization
-g.normalization <- g.normalization.backup
-remove(g.normalization.backup, i, j)
+g_Mvalues <- g_normalization
+g_normalization <- g_normalization_backup
+remove(g_normalization_backup, i, j)
 
 #Converting beta values into M values for promoters
 
-p.normalization <- promoters.clean[,1:20]
-p.normalization.backup <- p.normalization
+p_normalization <- promoters_clean[,1:20]
+p_normalization_backup <- p_normalization
 
 for(j in 1:20){
-  for (i in 1:nrow(p.normalization)){
+  for (i in 1:nrow(p_normalization)){
     
-    if(is.na(p.normalization[i, j])){
+    if(is.na(p_normalization[i, j])){
       
     }
     
     else{
       
-      if(p.normalization[i, j] == 1){
-        p.normalization[i, j] <- 0.9999999999
+      if(p_normalization[i, j] == 1){
+        p_normalization[i, j] <- 0.9999999999
       }
-      if(p.normalization[i, j] == 0) {
-        p.normalization[i, j] <- 0.0000000001
+      if(p_normalization[i, j] == 0) {
+        p_normalization[i, j] <- 0.0000000001
       }
       
-      p.normalization[i, j] = log2(p.normalization[i, j] / (1 - p.normalization[i, j]))
+      p_normalization[i, j] = log2(p_normalization[i, j] / (1 - p_normalization[i, j]))
     }
   }}
-p.Mvalues <- p.normalization
-p.normalization <- p.normalization.backup
-remove(p.normalization.backup, i, j)
+p_Mvalues <- p_normalization
+p_normalization <- p_normalization_backup
+remove(p_normalization_backup, i, j)
 
-#Replacing all Na's with beta mean values of each row for g.Mvalues
+#Replacing all Na's with beta mean values of each row for g_Mvalues
 
 for(j in 1:10){
-  for(i in 1:nrow(g.Mvalues)){
-    if(is.na(g.Mvalues[i, j])){
-      g.Mvalues[i, j] <- rowMeans(g.Mvalues[i, 1:10], na.rm = TRUE)
+  for(i in 1:nrow(g_Mvalues)){
+    if(is.na(g_Mvalues[i, j])){
+      g_Mvalues[i, j] <- rowMeans(g_Mvalues[i, 1:10], na.rm = TRUE)
     }}}
 
 for(j in 11:20){
-  for(i in 1:nrow(g.Mvalues)){
-    if(is.na(g.Mvalues[i, j])){
-      g.Mvalues[i, j] <- rowMeans(g.Mvalues[i, 11:20], na.rm = TRUE)
+  for(i in 1:nrow(g_Mvalues)){
+    if(is.na(g_Mvalues[i, j])){
+      g_Mvalues[i, j] <- rowMeans(g_Mvalues[i, 11:20], na.rm = TRUE)
     }}}
 
-#Replacing all Na's with beta mean values of each row for p.Mvalues
+#Replacing all Na's with beta mean values of each row for p_Mvalues
 
 for(j in 1:10){
-  for(i in 1:nrow(p.Mvalues)){
-    if(is.na(p.Mvalues[i, j])){
-      p.Mvalues[i, j] <- rowMeans(p.Mvalues[i, 1:10], na.rm = TRUE)
+  for(i in 1:nrow(p_Mvalues)){
+    if(is.na(p_Mvalues[i, j])){
+      p_Mvalues[i, j] <- rowMeans(p_Mvalues[i, 1:10], na.rm = TRUE)
     }}}
 
 for(j in 11:20){
-  for(i in 1:nrow(p.Mvalues)){
-    if(is.na(p.Mvalues[i, j])){
-      p.Mvalues[i, j] <- rowMeans(p.Mvalues[i, 11:20], na.rm = TRUE)
+  for(i in 1:nrow(p_Mvalues)){
+    if(is.na(p_Mvalues[i, j])){
+      p_Mvalues[i, j] <- rowMeans(p_Mvalues[i, 11:20], na.rm = TRUE)
     }}}
 remove(i,j)
