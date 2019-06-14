@@ -1,13 +1,36 @@
 # Distribution of all Coverage Values in log10: 
     plot(density(log10(coverage_all$Coverage)), main = "Distribution of coverage values")
 
-    # Drawing a "if we make this the maximum coverage value we keep this % of objects" plot: 
-    P = seq(0,1, 0.001)
+# All coverage values in one dataframe, for better plotting.
+    g_coverage_all <- data.frame(Coverage = c(t(genes_data_frame[,31:50])))
+    p_coverage_all <- data.frame(Coverage = c(t(promoters_data_frame[,31:50])))
+    
+# Creating new matrixes with only one group of patients with beta values withoun NAs. 
+    g_AML_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,11:20]))))
+    g_Mono_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,21:30]))))
+    p_AML_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,11:20]))))
+    p_Mono_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,21:30]))))
+    
+# Distribution of all beta values by AML or Mono patiens in the promoters and genes data set.
+    par(mfrow=c(1, 2))
+    hist(g_Mono_bedall$Beta, main = "Distribution of beta values by Mono patients for genes", xlab = "beta value", col = "forestgreen", breaks = 50)
+    hist(g_AML_bedall$Beta, main = "Distribution of beta values by AML patients for genes", xlab = "beta value", col = "red", breaks = 50)
+    par(mfrow=c(1, 2))
+    hist(p_Mono_bedall$Beta, main = "Distribution of beta values by Mono patients for promoters", xlab = "beta value", col = "forestgreen", breaks = 50)
+    hist(p_AML_bedall$Beta, main = "Distribution of beta values by AML patients for genes", xlab = "beta value", col = "red", breaks = 50)
+    
+# Drawing an "if we make this the maximum coverage value we keep this % of objects" plot for promoters and genes: 
+    # Genes
     Y = seq(0, 200000, 1)
-    Q = ecdf(g_AML.covmean$rowMeans.g_AMLpat.cov.) (Y)
-    plot(Y, Q, type = "n", main = "quantiles for coverage values")
+    Q = ecdf(g_coverage_all$Coverage) (Y)
+    plot(Y, Q, type = "n", main = "quantiles for coverage by genes")
     lines(Y, Q)
-
+  # For promoters:   
+    Y = seq(0, 200000, 1)
+    Q = ecdf(p_coverage_all$Coverage) (Y)
+    plot(Y, Q, type = "n", main = "quantiles for coverage by promoters")
+    lines(Y, Q)
+    
 # Printing how many genes will remain in the data set if only all values above knee_cut_cov are cut according to similar criteria as were used in "Data loading and transformation" (that code must be executed first)
     for (j in 21:40) {
       for (i in 1:nrow(Z)) {
