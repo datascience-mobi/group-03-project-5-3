@@ -1,0 +1,79 @@
+---
+title: "Identifying DMRs G3"
+author: "Leo Burmedi, Pierre De Marinis, Konstantin Fischer, Daniel Ürge"
+date: "6/10/2019"
+output: html_document
+---
+
+# R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# Introduction
+
+
+# Loading the data and naming the frames.
+```{r, echo=TRUE} 
+AML_Mono_list <- readRDS("~/Heidelberg/Uni/FS4 2019/Bioinfo/AMLvsMono/AML_Mono_list.RDS")
+input_data <- AML_Mono_list
+genes_data_framexy <- input_data$genes
+promoters_data_framexy <- input_data$promoters
+cpgislands_data_frame <- input_data$cpgislands
+tiling_data_frame <- input_data$tiling
+```
+# Quality control
+## Removing chromosome X, because of hypermethylation. And chromosome Y because of lack of male patients.
+```{R}
+genes_data_frame <- data.frame(genes_data_framexy[!(genes_data_framexy$Chromosome == "chrX" | genes_data_framexy$Chromosome == "chrY"),])
+promoters_data_frame <- data.frame(promoters_data_framexy[!(promoters_data_framexy$Chromosome == "chrX" | promoters_data_framexy$Chromosome == "chrY"),])
+```
+
+## Checking whether distribution of beta values differs by healty and AML patients. 
+    ```{r, echo = TRUE} 
+    g_AML_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,11:20]))))
+    g_Mono_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,21:30]))))
+    p_AML_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,11:20]))))
+    p_Mono_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,21:30]))))
+    ```
+
+### Distribution of all beta values by AML or Mono patiens in the genes dataset.
+```{r, echo = TRUE}
+par(mfrow=c(1, 2))    
+    hist(g_Mono_bedall$Beta, main = "Distribution beta Mono genes", xlab = "beta value", col = "forestgreen", breaks = 50, ylim = c(0, 80000))
+    hist(g_AML_bedall$Beta, main = "Distribution beta AML genes", xlab = "beta value", col = "red", breaks = 50)
+```  
+### Distribution of all beta values by AML or Mono patiens in the promoters dataset.
+
+```{r, echo = TRUE}
+par(mfrow=c(1, 2))    
+    hist(p_Mono_bedall$Beta, main = "Distribution beta Mono promoters", xlab = "beta value", col = "forestgreen", breaks = 50, ylim = c(0, 80000))
+    hist(p_AML_bedall$Beta, main = "Distribution beta AML promoters", xlab = "beta value", col = "red", breaks = 50)
+```  
+> It can be seen for both promoters and genes, that 2 plots have a slightly different distribution. This confirms the assumption that we might find DMRs for both datasets. 
+
+## Finding the upper coverge threshold for genes and promoters
+> The lower coverage values was set by 30 based on literature. For the higher however we came up with the solution to find the value where we would loose the lowest percentage of data by loosing the highest percentage of coverage values. To check if this is even possible we made two plots to evalueate the function.
+
+```{r,  echo=TRUE} 
+    # Creating data frames with all coverage values by genes and promoters
+    g_coverage_all <- data.frame(Coverage = c(t(genes_data_frame[,31:50])))
+    p_coverage_all <- data.frame(Coverage = c(t(promoters_data_frame[,31:50])))
+```
+### Drawing a "if we make this the maximum coverage value we keep this % of objects" plot for genes.
+
+```{r, echo = TRUE}
+    Y = seq(0, 200000, 1)
+    Q = ecdf(g_coverage_all$Coverage) (Y)
+    plot(Y, Q, type = "n", main = "quantiles for coverage values", xlab = "Coverage        value", ylab = "Quantile")
+    lines(Y, Q)
+```
+### Drawing a "if we make this the maximum coverage value we keep this % of objects" plot for promoters.
+```{r, echo = TRUE}
+    Y = seq(0, 200000, 1)
+    Q = ecdf(p_coverage_all$Coverage) (Y)
+    plot(Y, Q, type = "n", main = "quantiles for coverage values", xlab = "Coverage        value", ylab = "Quantile")
+    lines(Y, Q)
+```
+> These two plots look like logaritmic functions. This means we have to cut at value where the alteration of slope is the largest. This way we could keep the highest amount of data, by loosing the highest percentage of coverage.  
+
