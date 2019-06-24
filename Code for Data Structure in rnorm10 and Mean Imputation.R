@@ -6,11 +6,10 @@
 
 
 # creating a data frame for other apply functions to ppiggyback on
-j <- data.frame(c(seq(0,500000, 1)))
+j <- data.frame(c(seq(0,2000000, 1)))
 
 # the rnorm10 as described in "code for imputation models", once for t and once for wilcox
 f_modelimp_rnorm10 <- function(x) {
-  set.seed(x)
   if(x %% 1000 == 0.0000000000000000) {
     print(x/10000)
   }
@@ -23,7 +22,7 @@ f_modelimp_rnorm10 <- function(x) {
   winnercandidates <- c()
   
   for(i in 1:10) {
-    #    set.seed(x+(i*nrow(j)))
+    set.seed(x+(i*nrow(j)))
     testextend <- c(rnorm(mean = mean(test2), sd = sd(test2), 3))
     test2a <- c(test2, testextend)
     
