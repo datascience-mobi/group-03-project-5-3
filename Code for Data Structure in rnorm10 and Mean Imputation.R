@@ -6,12 +6,13 @@
 
 
 # creating a data frame for other apply functions to ppiggyback on
-j <- data.frame(c(seq(0,2000000, 1)))
+j <- data.frame(c(seq(1,2e6, 1)))
+jcount <- (nrow(j)/100)
 
 # the rnorm10 as described in "code for imputation models", once for t and once for wilcox
 f_modelimp_rnorm10 <- function(x) {
-  if(x %% 1000 == 0.0000000000000000) {
-    print(x/10000)
+  if(x %% jcount == 0) {
+    print(paste0(x/jcount, " % completed"))
   }
   
   set.seed(x)
@@ -51,8 +52,8 @@ f_modelimp_rnorm10 <- function(x) {
 
 # the mean imputation as described in "code for imputation models", once for t and once for wilcox
 f_modelimp_mean <- function(x) {
-  if(x %% 10000 == 0.0000000000000000) {
-    print(x/1000)
+  if(x %% jcount == 0) {
+    print(paste0(x/jcount, " % completed"))
   }
   
   set.seed(x)
@@ -67,8 +68,8 @@ f_modelimp_mean <- function(x) {
   return(c(t_testresults["p.value"], w_testresults["p.value"], impdiff))
 }
 
-meanimputation <- data.frame(matrix(unlist(apply(j, 1, f_modelimp_mean)), ncol = 3))
-rnorm10imputation <- data.frame(matrix(unlist(apply(j, 1, f_modelimp_rnorm10)), ncol = 3))
+meanimputation <- data.frame(matrix(unlist(apply(j, 1, f_modelimp_mean)), ncol = 3, byrow = TRUE))
+rnorm10imputation <- data.frame(matrix(unlist(apply(j, 1, f_modelimp_rnorm10)), ncol = 3, byrow = TRUE))
 
 #calculating mean p value
 meant <- mean(meanimputation[, 1])
@@ -78,12 +79,12 @@ rnorm10t <- mean(rnorm10imputation[, 1])
 rnorm10w <- mean(rnorm10imputation[, 2])
 rnorm10i <- mean(rnorm10imputation[, 3])
 
-#defining the perfect case scenario, in which we compare two identical vectors, so p is always 1
+#defining the perfect case scenario, in which we compare two identical vectors, so p is always 1 and difference is always 0
 perfectt <- 1
 perfectw <- 1
 perfecti <- 0
 
-#formatting and pressenting results
+#formatting and presenting results
 average_p_value_depending_on_imputation_t <- data.frame(c(perfectt, rnorm10t, meant))
 average_p_value_depending_on_imputation_w <- data.frame(c(perfectw, rnorm10w, meanw))
 average_p_value_depending_on_imputation_i <- data.frame(c(perfecti, rnorm10i, meani))
