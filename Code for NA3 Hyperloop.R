@@ -1,7 +1,7 @@
 # HYPERLOOP ANALYSIS FOR NA <= 3
 
 ###################################################################################################  
-# Creating the appropriate Data frames basing on AML_Mono_list, g_coverage_all, p_coverage_all
+# Creating the appropriate Data frames basing on AML_Mono_list
 
   #initial formatting
   input_data <- AML_Mono_list
@@ -11,6 +11,11 @@
   # Removing chromosome X, because of hypermethylation. And chromosome Y because of lack of male patients.
   genes_data_frame <- data.frame(genes_data_framexy[!(genes_data_framexy$Chromosome == "chrX" | genes_data_framexy$Chromosome == "chrY"),])
   promoters_data_frame <- data.frame(promoters_data_framexy[!(promoters_data_framexy$Chromosome == "chrX" | promoters_data_framexy$Chromosome == "chrY"),])
+  
+  # creating data sets of all coverage values in the data set, for later sequence generation
+  # All coverage values in one dataframe, for better plotting.
+  g_coverage_all <- data.frame(Coverage = c(t(genes_data_frame[,31:50])))
+  p_coverage_all <- data.frame(Coverage = c(t(promoters_data_frame[,31:50])))
   
   # grabbing some numbers for later tracking of what percentage of genes were cut in qc
   g_qcprecount <- nrow(genes_data_frame)
@@ -209,7 +214,6 @@
       lines(g_HyperResults_NA3$Coverage_Value, g_HyperResults_NA3$Remaining_Genes)
       lines(g_HyperResults_NA3$Coverage_Value, g_HyperResults_NA3$kneedle.line)
       lines(g_HyperResults_NA3$Coverage_Value, g_HyperResults_NA3$kneedle.difference)
-      #Make sure to manually check the maximum of g_HyperResults_NA3$kneedle.difference and check the corresponding Coverage_Value!
       
       remove(X1, X2, Y1, Y2, kneedle.difference, kneedle.line, g)
       
@@ -250,7 +254,6 @@
       lines(p_HyperResults_NA3$Coverage_Value, p_HyperResults_NA3$Remaining_Promoters)
       lines(p_HyperResults_NA3$Coverage_Value, p_HyperResults_NA3$kneedle.line)
       lines(p_HyperResults_NA3$Coverage_Value, p_HyperResults_NA3$kneedle.difference)
-      #Make sure to manually check the maximum of p_HyperResults_NA3$kneedle.difference and check the corresponding Coverage_Value!
       
       remove(X1, X2, Y1, Y2, kneedle.difference, kneedle.line, p)
       
