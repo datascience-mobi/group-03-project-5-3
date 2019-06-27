@@ -1,4 +1,5 @@
-#initial formatting
+###################################################################################################
+# (1) initial formatting
 input_data <- AML_Mono_list
 genes_data_framexy <- input_data$genes
 promoters_data_framexy <- input_data$promoters
@@ -11,6 +12,10 @@ promoters_data_frame <- data.frame(promoters_data_framexy[!(promoters_data_frame
 g_patients <- data.frame(genes_data_frame[11:50])
 p_patients <- data.frame(promoters_data_frame[11:50])
 
+remove(input_data, genes_data_frame, genes_data_framexy, promoters_data_frame, promoters_data_framexy)
+
+###################################################################################################
+# (2) Cleaning out unreliable rows with unreliable coverage and too many NAs
 # Changing all beta values of genes with corresponding coverage value <25 into NA (due to paper) and > 98525 into NA (due to kneedle analysis)
 for (j in 21:40) {
   for (i in 1:nrow(g_patients)) {
@@ -35,8 +40,12 @@ for (j in 21:40) {
 genes_clean <- g_patients[!(rowSums(is.na(g_patients[1:10])) > 3 | 
                               rowSums(is.na(g_patients[11:20])) > 3),  ]
 promoters_clean <- p_patients[!(rowSums(is.na(p_patients[1:10])) > 3 | 
-                              rowSums(is.na(p_patients[11:20])) > 3),  ]
+                                  rowSums(is.na(p_patients[11:20])) > 3),  ]
 
+remove(g_patients, p_patients)
+
+###################################################################################################
+# (3) M value transformation and imputation  
 # Converting beta values into M values for genes
 genes_clean_reduced <- genes_clean[,1:20]
 promoters_clean_reduced <- promoters_clean[,1:20]
@@ -68,9 +77,11 @@ p_M_NA <- data.frame(p_M_NA)
 
 #Replacing all Na's with rnorm10 imputation
 fg_rnorm10_imputation <- function(x) {
-  if(x %% 10000 == 0.0000000000000000) {
-    print(x/10000)
+  
+  if(x %% jcount == 0) {
+    cat("|")
   }
+  
   workingrow <- g_M_NA[x, ]
   
   if(rowSums(is.na(workingrow) > 0)) {
@@ -105,9 +116,11 @@ fg_rnorm10_imputation <- function(x) {
 }
 
 fp_rnorm10_imputation <- function(x) {
-  if(x %% 10000 == 0.0000000000000000) {
-    print(x/10000)
+
+  if(x %% jcount == 0) {
+    cat("|")
   }
+
   workingrow <- p_M_NA[x, ]
   
   if(rowSums(is.na(workingrow) > 0)) {
@@ -142,11 +155,15 @@ fp_rnorm10_imputation <- function(x) {
 }
 
 j <- data.frame(seq(1, nrow(g_M_NA), 1))
+jcount <- floor(nrow(j)/100)
+
 g_Mvalues <- apply(j, c(1,2) , fg_rnorm10_imputation)
 g_Mvalues <- matrix(unlist(g_Mvalues), ncol = nrow(g_M_NA), nrow = 20)
 g_Mvalues <- data.frame(t(g_Mvalues))
 
 j <- data.frame(seq(1, nrow(p_M_NA), 1))
+jcount <- floor(nrow(j)/100)
+
 p_Mvalues <- apply(j, c(1,2) , fp_rnorm10_imputation)
 p_Mvalues <- matrix(unlist(p_Mvalues), ncol = nrow(p_M_NA), nrow = 20)
 p_Mvalues <- data.frame(t(p_Mvalues))
@@ -158,51 +175,44 @@ rownames(g_Mvalues) <- rownames(g_M_NA)
 colnames(p_Mvalues) <- colnames(p_M_NA)
 rownames(p_Mvalues) <- rownames(p_M_NA)
 
-remove(j, i, input_data, g_M_NA, g_patients, genes_clean, genes_clean_reduced, genes_data_frame, genes_data_framexy, p_M_NA, p_patients, promoters_clean, promoters_clean_reduced, promoters_data_frame, promoters_data_framexy)
+remove(j, i,jcount, genes_clean, genes_clean_reduced, promoters_clean, promoters_clean_reduced)
 
-# Transposing of g_Mvalues, renaming of rownames for grouping in ggbiplot, removing of columns 
-# containing constant values, running PCA and coercing g_pca to a data frame
-g_T_Mvalues <- t(g_Mvalues)
-rownames(g_T_Mvalues) <- c(rep("AML", times = 10), rep("Mono", times = 10))
-g_T_Mvalues_clean <- g_T_Mvalues[ , apply(g_T_Mvalues, 2, var) != 0]
-g_pca <- prcomp(g_T_Mvalues_clean, center = TRUE, scale. = TRUE)
-g_pca_df <- as.data.frame(g_pca$x)
+###################################################################################################
+# (5) g_T and p_T formatting
+#splitting datasets to AML and Mon
+g_M_NA_AML <- g_M_NA[, 1:10]
+g_M_NA_mon <- g_M_NA[, 11:20]
 
-# Transposing of p_Mvalues, renaming of rownames for grouping in ggbiplot, running PCA for genes 
-# and coercing p_pca to a data frame.
-p_T_Mvalues <- t(p_Mvalues)
-rownames(p_T_Mvalues) <- c(rep("AML", times = 10), rep("Mono", times = 10))
-p_pca <- prcomp(p_T_Mvalues, center = TRUE, scale. = TRUE)
-p_pca_df <- as.data.frame(p_pca$x)
+p_M_NA_AML <- p_M_NA[, 1:10]
+p_M_NA_mon <- p_M_NA[, 11:20]
 
-# Creating data frames for batch effect detection in genes and promoters. They contain the first 
-# five principal components and three columns  with technical parameters (biomaterial provider, 
-# first submission date and sequence runs) and three biological parametrs(Age,Sex and Cell type),
-# which are checked for batch effects.
-g_PC_batch <- cbind(g_pca_df[,1:5],
-c(rep("Groningen", times=10), rep("Cambridge", times=4), rep("Nijmegen", times=6)),
-c(1032,1005,1032,rep(1005, times=7),1184,1184,1032,1032,788,0,788,80,0,0),
-c(9,10,9,rep(11, times=5),15,11,38,38,38,20,14,4,14,15,17,18),
-c(32.5,57.5,62.5,67.5,72.5,67.5,67.5,42.5,47.5,67.5,67.5,rep(62.5, times=3),rep(47.5, times=4),42.5,67.5),
-c(rep("myeloid", times=10), rep("monocyte", times=10)), 
-c(rep("Female", times=5),"Male",rep("Female", times=4),"Male","Female","Male","Female",rep("Male", times=5),"Female"))
-names(g_PC_batch)[6] <- "Provider"
-names(g_PC_batch)[7] <- "Date"
-names(g_PC_batch)[8] <- "Runs"
-names(g_PC_batch)[9] <- "Age"
-names(g_PC_batch)[10] <- "Cell_type"
-names(g_PC_batch)[11] <- "Sex"
+#defining a function that wil determine the values required for t-tests later
+f_MtoT <- function(x) {
+  
+  
+  m <- mean(x, na.rm = TRUE)
+  sd  <- sd(x, na.rm = TRUE)
+  n <- sum(!(is.na(x)))
+  
+  return(c(m,sd,n))
+}
 
-p_PC_batch <- cbind(p_pca_df[,1:5],
-c(rep("Groningen", times=10), rep("Cambridge", times=4), rep("Nijmegen", times=6)),
-c(1032,1005,1032,rep(1005, times=7),1184,1184,1032,1032,788,0,788,80,0,0),
-c(9,10,9,rep(11, times=5),15,11,38,38,38,20,14,4,14,15,17,18),
-c(32.5,57.5,62.5,67.5,72.5,67.5,67.5,42.5,47.5,67.5,67.5,rep(62.5, times=3),rep(47.5, times=4),42.5,67.5),
-c(rep("myeloid", times=10), rep("monocyte", times=10)), 
-c(rep("Female", times=5),"Male",rep("Female", times=4),"Male","Female","Male","Female",rep("Male", times=5),"Female"))
-names(p_PC_batch)[6] <- "Provider"
-names(p_PC_batch)[7] <- "Date"
-names(p_PC_batch)[8] <- "Runs"
-names(p_PC_batch)[9] <- "Age"
-names(p_PC_batch)[10] <- "Cell_type"
-names(p_PC_batch)[11] <- "Sex"
+# application of function to genes and promoters
+g_T_AML <- t(apply(g_M_NA_AML, 1, f_MtoT))
+g_T_mon <- t(apply(g_M_NA_mon, 1, f_MtoT))
+
+p_T_AML <- t(apply(p_M_NA_AML, 1, f_MtoT))
+p_T_mon <- t(apply(p_M_NA_mon, 1, f_MtoT))
+
+#naming, formatting, rremoving unwanted data sets
+g_T <- cbind(g_T_AML, g_T_mon)
+colnames(g_T) <- c("Mean AML", "SD AML", "N AML", "Mean Mono", "SD Mono", "N Mono")
+g_T <- data.frame(g_T)
+
+p_T <- cbind(p_T_AML, p_T_mon)
+colnames(p_T) <- c("Mean AML", "SD AML", "N AML", "Mean Mono", "SD Mono", "N Mono")
+p_T <- data.frame(p_T)
+
+remove(g_M_NA_mon, g_M_NA_AML, g_T_AML, g_T_mon, g_M_NA)
+remove(p_M_NA_mon, p_M_NA_AML, p_T_AML, p_T_mon, p_M_NA)
+remove(f_BetaToM, fg_rnorm10_imputation, fp_rnorm10_imputation, f_MtoT)
