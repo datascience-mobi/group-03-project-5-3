@@ -162,4 +162,33 @@ library(qvalue)
   
   remove(g_T, g_Resource, g_M_NA)
   remove(p_T, p_Resource, p_M_NA)
-
+  
+###################################################################################################
+# code for final data frame that lists top candidates from prommoters and genes
+  # taking duplicate ensemble IDs out of genes. The duplicates could also be taken from promoters, eitheer way only the ranking is influenced, and that is informal
+  g_F_reduced <- g_Finale[!(rownames(g_Finale) %in% rownames(p_Finale)), ]
+  
+  # combining the non-redundant finalist sequences between promoters and genes
+  F_comp <- rbind(g_F_reduced, p_Finale)
+  
+  # ranking the data set by signnificance and fold change, with a "custom-2 rankking system that emphasizes both high ranking fc and p
+  F_sig <- rank(F_comp$p_values)
+  F_fc_abs <- abs(F_comp$Foldchange_Beta)
+  F_fc <- rank(-F_fc_abs)
+  
+  ff_rank <- function(x) {
+    F_rank <- max(F_sig[x], F_fc[x])
+    
+    return(F_rank)
+  }
+  
+  j <- data.frame(seq(1, length(F_sig), 1))
+  F_rank <- apply(j, 1, ff_rank)
+  F_comp <- F_comp[order(F_rank), c(1,3,4,5)]
+  F_rank  <- cbind(F_sig, F_fc, F_rank)
+  
+  # removiing uneccesary data sets
+  remove(F_sig, F_fc_abs, F_fc, g_F_reduced, j, ff_rank)
+  remove(g_q, p_q, g_FinaleComparison, p_FinaleComparison)
+  
+  View(F_comp)
