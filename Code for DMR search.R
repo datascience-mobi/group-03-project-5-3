@@ -95,7 +95,7 @@ library(qvalue)
   p_T_reduced <- p_T_q[which(rownames(p_T_q) %in% p_PC1_names), ]
 ###################################################################################################
 # final fromatting and volcano plot elements
-  # merging our reduced data sets with the resource data sets to have symbol and searchable ensign id for every sequence
+  # merging our reduced data sets with the resource data sets to have symbol and searchable Ensembl id for every sequence
   g_Finale <- merge(g_T_reduced, g_Resource, by = 0, all = FALSE)
   rownames(g_Finale) <- g_Finale$Row.names
   g_Finale <- g_Finale[, c(8, 9, 12, 11, 10)]
