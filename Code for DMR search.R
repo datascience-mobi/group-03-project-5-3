@@ -116,15 +116,15 @@ library(qvalue)
   #ordering Finale data sets for fold change and significance
   g_sig <- rank(g_Finale$p_values)
   g_fc_abs <- abs(g_Finale$Foldchange_Beta)
-  g_fc <- rank(g_fc_abs)
+  g_fc <- rank(-g_fc_abs)
   g_rank <- (g_fc + g_sig)/2
-  g_Finale <- g_Finale[order(g_rank, decreasing = TRUE), ]
+  g_Finale <- g_Finale[order(-g_rank, decreasing = TRUE), ]
   
   p_sig <- rank(p_Finale$p_values)
   p_fc_abs <- abs(p_Finale$Foldchange_Beta)
-  p_fc <- rank(p_fc_abs)
+  p_fc <- rank(-p_fc_abs)
   p_rank <- (p_fc + p_sig)/2
-  p_Finale <- p_Finale[order(p_rank, decreasing = TRUE), ]
+  p_Finale <- p_Finale[order(-p_rank, decreasing = TRUE), ]
   
   # removal of uneccesary data sets
   remove(g_T_q, g_PC1_names)
