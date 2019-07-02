@@ -261,13 +261,13 @@ rownames(p_R_Symbols) <- rownames(promoters_data_frame)
 g_Resource <- merge(g_RB_foldchange, g_R_Symbols , by = 0, all = FALSE)
 g_Resource <- g_Resource[, c(1,3,2)]
 rownames(g_Resource) <- g_Resource$Row.names
-colnames(g_Resource) <- c("Ensign_ID", "Symbols", "Foldchange_Beta")
+colnames(g_Resource) <- c("Ensembl_ID", "Symbols", "Foldchange_Beta")
 
 # formatting the p_resource data set
 p_Resource <- merge(p_RB_foldchange, p_R_Symbols , by = 0, all = FALSE)
 p_Resource <- p_Resource[, c(1,3,2)]
 rownames(p_Resource) <- p_Resource$Row.names
-colnames(p_Resource) <- c("Ensign_ID", "Symbols", "Foldchange_Beta")
+colnames(p_Resource) <- c("Ensembl_ID", "Symbols", "Foldchange_Beta")
 
 # removal of uneccesary data sets
 remove(g_M_NA_AML, g_M_NA_mon, g_R_Symbols, g_RB_AML_m, g_RB_mon_m, g_RB_foldchange, g_RM_AML_m, g_RM_mon_m, genes_data_frame, promoters_data_frame, f_MtoBeta)

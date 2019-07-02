@@ -95,7 +95,7 @@ library(qvalue)
   p_T_reduced <- p_T_q[which(rownames(p_T_q) %in% p_PC1_names), ]
 ###################################################################################################
 # final fromatting and volcano plot elements
-  # merging our reduced data sets with the resource data sets to have symbol and searchable ensign id for every sequence
+  # merging our reduced data sets with the resource data sets to have symbol and searchable Ensembl id for every sequence
   g_Finale <- merge(g_T_reduced, g_Resource, by = 0, all = FALSE)
   rownames(g_Finale) <- g_Finale$Row.names
   g_Finale <- g_Finale[, c(8, 9, 12, 11, 10)]
@@ -116,15 +116,15 @@ library(qvalue)
   #ordering Finale data sets for fold change and significance
   g_sig <- rank(g_Finale$p_values)
   g_fc_abs <- abs(g_Finale$Foldchange_Beta)
-  g_fc <- rank(g_fc_abs)
+  g_fc <- rank(-g_fc_abs)
   g_rank <- (g_fc + g_sig)/2
-  g_Finale <- g_Finale[order(g_rank, decreasing = TRUE), ]
+  g_Finale <- g_Finale[order(-g_rank, decreasing = TRUE), ]
   
   p_sig <- rank(p_Finale$p_values)
   p_fc_abs <- abs(p_Finale$Foldchange_Beta)
-  p_fc <- rank(p_fc_abs)
+  p_fc <- rank(-p_fc_abs)
   p_rank <- (p_fc + p_sig)/2
-  p_Finale <- p_Finale[order(p_rank, decreasing = TRUE), ]
+  p_Finale <- p_Finale[order(-p_rank, decreasing = TRUE), ]
   
   # removal of uneccesary data sets
   remove(g_T_q, g_PC1_names)
