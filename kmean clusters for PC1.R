@@ -130,3 +130,92 @@
          , g_PC1_55, g_PC1_60, g_PC1_65, g_PC1_70, g_PC1_75, g_PC1_80, g_PC1_85, g_PC1_90, g_PC1_95, g_PC1_100)
   remove(km5, km10, km15, km20, km25, km30, km35, km40, km45, km50, km55, km60, km65, km70, km75, km80, km85, km90, km95, km100)
   
+  # Crealing dataframes 5-100% in 5% steps of g_PC1_M for clustering for promoters.  
+  p_PC1_5 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.05)])
+  p_PC1_10 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.1)])
+  p_PC1_15 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.15)])
+  p_PC1_20 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.2)])
+  p_PC1_25 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.25)])
+  p_PC1_30 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.3)])
+  p_PC1_35 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.35)])
+  p_PC1_40 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.4)])
+  p_PC1_45 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.45)])
+  p_PC1_50 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.5)])
+  p_PC1_55 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.55)])
+  p_PC1_60 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.6)])
+  p_PC1_65 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.65)])
+  p_PC1_70 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.7)])
+  p_PC1_75 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.75)])
+  p_PC1_80 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.8)])
+  p_PC1_85 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.85)])
+  p_PC1_90 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.9)])
+  p_PC1_95 <- as.data.frame(p_PC1_MTrans[,1:(55270*0.95)])
+  p_PC1_100 <- as.data.frame(p_PC1_MTrans[,1:(55270*1)])
+  
+  # Creating vectrors with only the clusters for each data frame for genes. 
+  km5 <- kmeans(p_PC1_5, centers = 2)
+  km5 <- km5$cluster
+  
+  km10 <- kmeans(p_PC1_10, centers = 2)
+  km10 <- km10$cluster
+  
+  km15 <- kmeans(p_PC1_15, centers = 2)
+  km15 <- km15$cluster
+  
+  km20 <- kmeans(p_PC1_20, centers = 2)
+  km20 <- km20$cluster
+  
+  km25 <- kmeans(p_PC1_25, centers = 2)
+  km25 <- km25$cluster
+  
+  km30 <- kmeans(p_PC1_30, centers = 2)
+  km30 <- km30$cluster
+  
+  km35 <- kmeans(p_PC1_35, centers = 2)
+  km35 <- km35$cluster
+  
+  km40 <- kmeans(p_PC1_40, centers = 2)
+  km40 <- km40$cluster
+  
+  km45 <- kmeans(p_PC1_45, centers = 2)
+  km45 <- km45$cluster
+  
+  km50 <- kmeans(p_PC1_50, centers = 2)
+  km50 <- km50$cluster
+  
+  km55 <- kmeans(p_PC1_55, centers = 2)
+  km55 <- km55$cluster
+  
+  km60 <- kmeans(p_PC1_60, centers = 2)
+  km60 <- km60$cluster
+  
+  km65 <- kmeans(p_PC1_65, centers = 2)
+  km65 <- km65$cluster
+  
+  km70 <- kmeans(p_PC1_70, centers = 2)
+  km70 <- km70$cluster
+  
+  km75 <- kmeans(p_PC1_75, centers = 2)
+  km75 <- km75$cluster
+  
+  km80 <- kmeans(p_PC1_80, centers = 2)
+  km80 <- km80$cluster
+  
+  km85 <- kmeans(p_PC1_85, centers = 2)
+  km85 <- km85$cluster
+  
+  km90 <- kmeans(p_PC1_90, centers = 2)
+  km90 <- km90$cluster
+  
+  km95 <- kmeans(p_PC1_95, centers = 2)
+  km95 <- km95$cluster
+  
+  km100 <- kmeans(p_PC1_100, centers = 2)
+  km100 <- km100$cluster
+  
+  p_kmeans_all <- data.frame(cbind(km5, km10, km15, km20, km25, km30, km35, km40, km45, km50, km55, km60, km65, km70, km75, km80, km85, km90, km95, km100))
+  
+  remove(p_PC1_5, p_PC1_10, p_PC1_15, p_PC1_20, p_PC1_25, p_PC1_30, p_PC1_35, p_PC1_40, p_PC1_45, p_PC1_50
+         , p_PC1_55, p_PC1_60, p_PC1_65, p_PC1_70, p_PC1_75, p_PC1_80, p_PC1_85, p_PC1_90, p_PC1_95, p_PC1_100)
+  remove(km5, km10, km15, km20, km25, km30, km35, km40, km45, km50, km55, km60, km65, km70, km75, km80, km85, km90, km95, km100)
+  
