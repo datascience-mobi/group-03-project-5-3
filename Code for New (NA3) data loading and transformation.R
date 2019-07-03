@@ -16,33 +16,42 @@ remove(input_data, genes_data_framexy, promoters_data_framexy)
 
 ###################################################################################################
 # (2) Cleaning out unreliable rows with unreliable coverage and too many NAs
-# Changing all beta values of genes with corresponding coverage value <25 into NA (due to paper) and > 98525 into NA (due to kneedle analysis)
-for (j in 21:40) {
-  for (i in 1:nrow(g_patients)) {
-    
-    if(g_patients[i,j] < 25 | g_patients[i,j] >= 98525){
-      g_patients[i,j-20] <- NA
-    }
-  }
-}
+  # separating our data set for ifelse apllication
+  g_pat_bet <- g_patients[ , 1:20]
+  g_pat_cov <- g_patients[, 21:40]
+  
+  p_pat_bet <- p_patients[ , 1:20]
+  p_pat_cov <- p_patients[, 21:40]
 
-# Changing all beta values of genes with corresponding coverage value <25 into NA (due to paper) and > 14175 into NA (due to kneedle analysis)
-for (j in 21:40) {
-  for (i in 1:nrow(p_patients)) {
-    
-    if(p_patients[i,j] < 25 | p_patients[i,j] >= 14175){
-      p_patients[i,j-20] <- NA
-    }
-  }
-}
-
-# Cleaning up newly gained data frame from rows with more then 3 NA´s
-genes_clean <- g_patients[!(rowSums(is.na(g_patients[1:10])) > 3 | 
-                              rowSums(is.na(g_patients[11:20])) > 3),  ]
-promoters_clean <- p_patients[!(rowSums(is.na(p_patients[1:10])) > 3 | 
-                                  rowSums(is.na(p_patients[11:20])) > 3),  ]
-
-remove(g_patients, p_patients, i, j)
+  # defining upper and lower coverage values
+  g_lowercov <- 25
+  g_uppercov <- 98525
+  
+  p_lowercov <- 25
+  p_uppercov <- 14175
+  
+  #using the ifelse functions to record which positions in coverage should be NA
+  g_NAs <- ifelse(g_pat_cov < g_lowercov | g_pat_cov >= g_uppercov, 1, 0 )
+  p_NAs <- ifelse(p_pat_cov < p_lowercov | p_pat_cov >= p_uppercov, 1, 0 )
+  
+  #turning those positions into NA
+  g_pat_bet[g_NAs == 1] <- NA
+  p_pat_bet[p_NAs == 1] <- NA
+  
+  #recombining our dataset
+  g_pat_covNA <- cbind(g_pat_bet, g_pat_cov)
+  p_pat_covNA <- cbind(p_pat_bet, p_pat_cov)
+  
+  # cleaning out rows that harbour cohorts with too many NAs
+  genes_clean <- g_pat_covNA[!(rowSums(is.na(g_pat_covNA[1:10])) > 3 | 
+                                 rowSums(is.na(g_pat_covNA[11:20])) > 3),  ]
+  
+  promoters_clean <- p_pat_covNA[!(rowSums(is.na(p_pat_covNA[1:10])) > 3 | 
+                                     rowSums(is.na(p_pat_covNA[11:20])) > 3),  ]
+  
+  # removing uneccesary data sets
+  remove(g_lowercov, g_uppercov, g_NAs, g_pat_bet, g_pat_cov, g_pat_covNA, g_patients)
+  remove(p_lowercov, p_uppercov, p_NAs, p_pat_bet, p_pat_cov, p_pat_covNA, p_patients)
 
 ###################################################################################################
 # (3) M value transformation and imputation  
