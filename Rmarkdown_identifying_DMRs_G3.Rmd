@@ -31,6 +31,7 @@ remove(tiling_data_frame, cpgislands_data_frame, input_data, AML_Mono_list)
 > Chromosome X is removed because of hypermethylation and chromosome Y because of lack of male patients.
 
 ```{r, echo = TRUE}
+# Removing chromosome X and Y.
     genes_data_frame <- data.frame(genes_data_framexy[!(genes_data_framexy$Chromosome == "chrX" | genes_data_framexy$Chromosome == "chrY"),])
     promoters_data_frame <-     data.frame(promoters_data_framexy[!(promoters_data_framexy$Chromosome == "chrX" | promoters_data_framexy$Chromosome == "chrY"),])
     remove(genes_data_framexy, promoters_data_framexy)
@@ -41,13 +42,14 @@ remove(tiling_data_frame, cpgislands_data_frame, input_data, AML_Mono_list)
 > First we need to check if we can find DMRs at all. Finding DMRs is only possible if the distributions of beta values differ between AML and healty patients so we need to check this.  
 
 ```{r, echo = TRUE} 
+# Creating dataframes for genes and prmoters with all beta values not without NAs.
     g_AML_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,11:20]))))
     g_Mono_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,21:30]))))
     p_AML_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,11:20]))))
     p_Mono_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,21:30]))))
 ```
 
-#### Distribution of all beta values by AML or Mono patiens in the genes and prmoters dataset.
+#### Distribution of all beta values by AML or Mono patiens in the genes and promoters dataset.
 ```{r, echo = TRUE}
 par(mfrow=c(1, 2))    
     hist(g_Mono_bedall$Beta, main = "Distribution beta Mono genes", xlab = "beta value", col = "forestgreen", breaks = 50, ylim = c(0, 80000))
@@ -118,6 +120,7 @@ par(mfrow=c(1, 2))
 > Now that the thresholds are identified the beta values with a corresponding  coverage value <25 and > 98525 for genes will be set to NAs. For prmoters we used <25 and > 14175 as thresholds based on the kneedle analyisis as well.
 
 ```{r}
+# Loop for setting unreliable values to NAs by genes.
 for (j in 21:40) {
   for (i in 1:nrow(g_patients)) {
     
@@ -127,7 +130,7 @@ for (j in 21:40) {
   }
 }
 
-# Changing all beta values of promoters with corresponding coverage value <25 into NA (due to paper) and > 14175 into NA (due to kneedle analysis)
+# Loop for setting unreliable values to NAs by promoters.
 for (j in 21:40) {
   for (i in 1:nrow(p_patients)) {
     
@@ -141,6 +144,7 @@ for (j in 21:40) {
 > Next the lines with more than 3 NAs for at least in patient group will be removed since these genes or promoters are unrelaible. 
 
 ```{r}
+# Removing lines with more than 3 NAs for at least one cohort. 
 genes_clean <- g_patients[!(rowSums(is.na(g_patients[1:10])) > 3 | 
                               rowSums(is.na(g_patients[11:20])) > 3),  ]
 promoters_clean <- p_patients[!(rowSums(is.na(p_patients[1:10])) > 3 | 
@@ -149,19 +153,19 @@ promoters_clean <- p_patients[!(rowSums(is.na(p_patients[1:10])) > 3 |
 remove(g_patients, p_patients, i, j)
 ```
 
-# $\color{blue}{\text{Normalisation and Impuatation}}$
+# $\color{blue}{\text{Normalization and Imputation}}$
 
 ## Normalization 
 > In oder to be able to perform a Student t-test later we need to nomalize the data. This was done by converting the beta values to M values. This has many advantages: M values have a normal distribution, range from infinity to negative infinity and the M values have a stable variance. 
 
-> Eqation for normalisation:  $M = \ln(Beta/(1-Beta))$ 
+> Eqation for imputation: $M =\log_{2}(\frac{\beta}{1-\beta})$
 
 ### Code for normalization
 ```{r}
 genes_clean_reduced <- genes_clean[,1:20]
 promoters_clean_reduced <- promoters_clean[,1:20]
 
-
+# Since 0 and 1 render no results we used 0.0000000001, 0.9999999999 respectively in the calculation instead.
 f_BetaToM <- function(x) {
   
   if(!(is.na(x))){
@@ -190,3 +194,4 @@ p_M_NA <- data.frame(p_M_NA)
 ## Imputation
 > At this point still many NAs remain in the datassets, so we want to handle them. We could either get rid of all lines which still include NAs, or impute them. In order to keep as much information as possible we decided to impute the NAs. There are multiple models to do this and we tested out some on our data to find the best one. The reason we decided to impute after the normalization is...
 
+### Imputation models
