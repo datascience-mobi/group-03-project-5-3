@@ -88,7 +88,7 @@ for (i in 1:5) {
 }
   
 ## Previewing our p-values
-kable(g_pvalues_runs, align = "c", col.names = "P-Values for Providers")
+kable(g_pvalues_runs, align = "c", col.names = "P-Values for Runs")
 
 ```
 
@@ -124,7 +124,7 @@ for (i in 1:5) {
 }
 
 ## Previewing our p-values
-kable(g_pvalues_CT, align = "c", col.names = "P-Values for Providers")
+kable(g_pvalues_CT, align = "c", col.names = "P-Values for Cell Type")
 
 ## Removing uneccesary data sets
 remove(p, d, a, r, c, s, i)
@@ -222,7 +222,7 @@ remove(p_PC_pvalues_bin)
 
 Looking at the continuous p-values we can see many similar structures between promoters and data sets. Since the data in both cases is made up of identical batches, this make sense.
 
-In contrats the binary heatmaps do show some differences, but show in both cases that PC1 has the lowest number of batch effects while still being influenced by cell type.  The only other batch effect in PC1, in both cases, is the provider. While not gone into in further depth, there is only one provider for the AML cohort. It seems a likelihood that the difference between thee AML and monocyte cohort are causing this perceived batch effect. However, this has not been confirmed. 
+In contrast the binary heatmaps do show some differences, but show in both cases that PC1 has the lowest number of batch effects while still being influenced by cell type.  The only other batch effect in PC1, in both cases, is the provider. While not gone into in further depth, there is only one provider for the AML cohort. It seems a likelihood that the difference between thee AML and monocyte cohort are causing this perceived batch effect. However, this has not been confirmed. 
 
 Regardless, PC1 shows the least amount of batch effects in both cases, and sine it also explains the most variance, it is the PC we will be using in our continuing analysis. It has the most favorable qualities.
 
