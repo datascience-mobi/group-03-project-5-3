@@ -1,0 +1,239 @@
+---
+title: "Batch Effect Analysis"
+author: "Leo Burmedi, Pierre de Marinis, Konstantin Fischer, Daniel Ürge"
+date: "7/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(qvalue)
+library(knitr)
+library(surveillance)
+
+load("~/A. Leo/0. University/4. Semester (2.2 + 4.1)/4.1 FS/Bioinformatik Projekt/z. Local Work/data/Data for Batch Rmarkdown.RData")
+
+```
+
+# Z. Batch Effect Analysis
+
+Having performed our PCA and generated the relevant data sets for this step of the analysis it's now time to decide which PCs of the PCA will be used for the continuing analysis. As previously discussed, some PCs are associated with favorable qualities, such explaining large proportions of the variance or showing internal data structures, like separation of the healthy and cancerous cohorts. Here we determine another favorable qualitiy: not being influenced by batch effects. (In this definition we also include biological effects that are not of relevance to our analysis.)
+
+We have a variety of non-relevant effects that can influence batches in our data. We have the biomaterial providers, sex, age, number of sequencing runs, date of sequencing and cell type. Of all of these, we are looking to find PCs that explain a high proportion of the variance but are not affected by the first five batches mentioned above. We are selecting for PCs that are influenced by cell type however, as these will likely hold sequences that are differentially expressed between our two cohorts (since cell type is monocytes and AML cells respectively).
+
+### Z.1 Performing Batch Effect Tests
+
+In order to more accurately capture the influence of our batches on our PCs we are performing multiple tests that will indicate the significance of the inluence on the batch effect. We are using three different tests depending on the form of th ebatch analysed.
+
+#### Z.1.1 Kruskal-Wallis Test
+
+This test is well suited for categorical data with three or more categories. As providers, age and date of sequencing fit this description, this is the test we use.
+
+```{r Kruskal Wallis}
+
+## Defining Vectors for p-values
+g_pvalues_prov <- c()
+g_pvalues_date <- c()
+g_pvalues_age <- c()
+
+p_pvalues_prov <- c()
+p_pvalues_date <- c()
+p_pvalues_age <- c()
+
+## These loops will run through the PC batch data set and perform a Kruskal Wallis test for every PC and all three batches
+for (i in 1:5) {
+  p <- (kruskal.test(g_PC_batch[,i]~g_PC_batch[,6]))$p.value
+  d <- (kruskal.test(g_PC_batch[,i]~g_PC_batch[,7]))$p.value
+  a <- (kruskal.test(g_PC_batch[,i]~g_PC_batch[,9]))$p.value
+  g_pvalues_prov <- append(g_pvalues_prov, p)
+  g_pvalues_date <- append(g_pvalues_date, d)
+  g_pvalues_age <- append(g_pvalues_age, a)
+}
+
+for (i in 1:5) {
+  p <- (kruskal.test(p_PC_batch[,i]~p_PC_batch[,6]))$p.value
+  d <- (kruskal.test(p_PC_batch[,i]~p_PC_batch[,7]))$p.value
+  a <- (kruskal.test(p_PC_batch[,i]~p_PC_batch[,9]))$p.value
+  p_pvalues_prov <- append(p_pvalues_prov, p)
+  p_pvalues_date <- append(p_pvalues_date, d)
+  p_pvalues_age <- append(p_pvalues_age, a)
+}
+  
+## Previewing our p-values
+kable(g_pvalues_prov, align = "c", col.names = "P-Values for Providers")
+
+```
+
+This output from providers shows us that there are few PCs that the providers are significant for, such as PC1 (0.03 < 0.05) or PC2 (0.001 < 0.05).
+
+#### Z.1.2 Monte Carlo Permutation Test
+
+This test is well suited for numerical data. Since only sequencing runs fits this description, it'll be the only one we use this test on.
+
+```{r Monte Carlo Permutation}
+## Definign vectors
+g_pvalues_runs <- c()
+p_pvalues_runs <- c()
+
+## Running each of the for-loops
+for (i in 1:5) {
+  r <- (permutationTest(g_PC_batch[,i], g_PC_batch[,8], nPermutation = 9999))$pVal.permut
+  g_pvalues_runs <- append(g_pvalues_runs, r)
+}
+
+for (i in 1:5) {
+  r <- (permutationTest(p_PC_batch[,i], p_PC_batch[,8], nPermutation = 9999))$pVal.permut
+  p_pvalues_runs <- append(p_pvalues_runs, r)
+}
+  
+## Previewing our p-values
+kable(g_pvalues_runs, align = "c", col.names = "P-Values for Providers")
+
+```
+
+In contrast to the providers batch effect, the batch effect for runs is non-significant in all PCs.
+
+#### Z.1.3 Wilcoxon Test
+
+This test is well suited for categorical data with only two categories. Since sex and cell type fit this description, we will be using this teston them.
+
+```{r Wilcoxon}
+
+## Defining Vectors
+g_pvalues_CT <- c()
+g_pvalues_sex <- c()
+
+p_pvalues_CT <- c()
+p_pvalues_sex <- c()
+
+
+## Running our for loops
+for (i in 1:5) {
+  c <- (wilcox.test(g_PC_batch[,i] ~ g_PC_batch[,10]))$p.value
+  s <- (wilcox.test(g_PC_batch[,i] ~ g_PC_batch[,11]))$p.value    
+  g_pvalues_CT <- append(g_pvalues_CT, c)
+  g_pvalues_sex <- append(g_pvalues_sex, s)
+}
+
+for (i in 1:5) {
+  c <- (wilcox.test(p_PC_batch[,i] ~ p_PC_batch[,10]))$p.value
+  s <- (wilcox.test(p_PC_batch[,i] ~ p_PC_batch[,11]))$p.value    
+  p_pvalues_CT <- append(p_pvalues_CT, c)
+  p_pvalues_sex <- append(p_pvalues_sex, s)
+}
+
+## Previewing our p-values
+kable(g_pvalues_CT, align = "c", col.names = "P-Values for Providers")
+
+## Removing uneccesary data sets
+remove(p, d, a, r, c, s, i)
+
+```
+
+Here we can see that the cell type, i.e. our cohorts have a significant impact on the first three PCs.
+
+### Z.2 Pooling Results
+
+We will now combine all of our vectors of p-values into one matrix where we can quickly compare what PC is affected by which batch effect siggnificantly.
+
+```{r Pooling Results}
+
+# Summarizing values in a data frame
+  ## Combining and formatting data set
+  g_PC_pvalues <- data.frame(g_pvalues_prov, g_pvalues_date, g_pvalues_age, g_pvalues_runs, g_pvalues_CT, g_pvalues_sex)
+
+  rownames(g_PC_pvalues) = c("PC1", "PC2", "PC3", "PC4", "PC5")
+  colnames(g_PC_pvalues) <- c("Provider", "Date", "Age", "Runs", "Cell type", "Sex")
+  
+  p_PC_pvalues <- data.frame(p_pvalues_prov, p_pvalues_date, p_pvalues_age, p_pvalues_runs, p_pvalues_CT, p_pvalues_sex)
+  
+  rownames(p_PC_pvalues) = c("PC1", "PC2", "PC3", "PC4", "PC5")
+  colnames(p_PC_pvalues) <- c("Provider", "Date", "Age", "Runs", "Cell type", "Sex")
+  
+  g_PC_pvalues <- t(g_PC_pvalues)
+  p_PC_pvalues <- t(p_PC_pvalues)
+  
+  ## Previewing our new data set
+  kable(g_PC_pvalues, align = "c", caption = "P-Values of Batch Effects on PCs")
+  
+  ## Removing uneccesary data sets
+  remove(g_pvalues_prov, g_pvalues_date, g_pvalues_age, g_pvalues_runs, g_pvalues_CT, g_pvalues_sex)
+  remove(p_pvalues_prov, p_pvalues_date, p_pvalues_age, p_pvalues_runs, p_pvalues_CT, p_pvalues_sex)
+
+```
+
+### Z.3 Visualizing our Results and choosing PCs to analyse with
+
+We will now produce a few heatmaps to better understand our results. We will plot actual p-Values as heatmaps once to see overall structures in our data, and then two color heatmaps that simply indicate significance and non-significance.
+
+```{r Visualizing Results}
+
+## Binary Heatmap
+    ## Creating data set
+    g_PC_pvalues_bin <- ifelse(g_PC_pvalues <= 0.05, 0, 1)
+    p_PC_pvalues_bin <- ifelse(p_PC_pvalues <= 0.05, 0, 1)
+    
+    ## Plotting heatmap
+    batch_colors <- colorRampPalette(c("#FF9500", "#FFFF66"))
+
+    heatmap(g_PC_pvalues_bin
+            , scale = "none"
+            , col = batch_colors(2)
+            , main = "Heatmap of Genes Batch Effects (Significance <= 0.05)"
+            , xlab = "Kruskal (P, D, A), Permutation (R), Wilcoxon (CT, S)"
+            , Rowv = NA
+            , Colv = NA
+    )
+    
+    heatmap(p_PC_pvalues_bin
+            , scale = "none"
+            , col = batch_colors(2)
+            , main = "Heatmap of Promoters Batch Effects (Significance <= 0.05)"
+            , xlab = "Kruskal (P, D, A), Permutation (R), Wilcoxon (CT, S)"
+            , Rowv = NA
+            , Colv = NA
+    )
+
+## Heatmap with continous colors
+    heatmap(as.matrix(g_PC_pvalues)
+            , scale = "none"
+            , col = batch_colors(256)
+            , main = "Heatmap of Batch Effect p-values (Genes)"
+            , xlab = "Kruskal (P, D, A), Permutation (R), Wilcoxon (CT, S)"
+            , Rowv = NA
+            , Colv = NA
+    )
+    
+    heatmap(as.matrix(p_PC_pvalues)
+            , scale = "none"
+            , col = batch_colors(256)
+            , main = "Heatmap of Batch Effect p-values (Promoters)"
+            , xlab = "Kruskal (P, D, A), Permutation (R), Wilcoxon (CT, S)"
+            , Rowv = NA
+            , Colv = NA
+    )
+
+## Removing uneccesary data sets
+remove(g_PC_pvalues_bin ,batch_colors)
+remove(p_PC_pvalues_bin)
+
+```
+
+Looking at the continuous p-values we can see many similar structures between promoters and data sets. Since the data in both cases is made up of identical batches, this make sense.
+
+In contrats the binary heatmaps do show some differences, but show in both cases that PC1 has the lowest number of batch effects while still being influenced by cell type.  The only other batch effect in PC1, in both cases, is the provider. While not gone into in further depth, there is only one provider for the AML cohort. It seems a likelihood that the difference between thee AML and monocyte cohort are causing this perceived batch effect. However, this has not been confirmed. 
+
+Regardless, PC1 shows the least amount of batch effects in both cases, and sine it also explains the most variance, it is the PC we will be using in our continuing analysis. It has the most favorable qualities.
+
+
+
+
+
+
+
+
+
+
+
+
