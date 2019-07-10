@@ -3,8 +3,8 @@ title: "Identifying DMRs"
 author: "Leo Burmedi, Pierre De Marinis, Konstantin Fischer, Daniel Ürge"
 date: "6/10/2019"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
 
 # Introduction
@@ -27,6 +27,7 @@ f_[text]   | function
 ### Loading the data and naming the frames.
 ```{r, echo=TRUE} 
 ## Loading the dataframe and naming in input_data is neccesary first for the code to run threw properly. 
+input_data <- readRDS("~/Heidelberg/Uni/FS4 2019/Bioinfo/AMLvsMono/AML_Mono_list.RDS")
 genes_data_framexy <- input_data$genes
 promoters_data_framexy <- input_data$promoters
 cpgislands_data_frame <- input_data$cpgislands
@@ -94,14 +95,13 @@ par(mfrow=c(1, 2))
 
 > Once we find the threshold we will convert all beta values with an unrelaible corresponding coverage value to NAs. Next we will remove all rows with more than 3 NAs for one cohort.
 
+#### Creating data frames with all coverage values by genes and promoters
 ```{r,  echo=TRUE} 
-    ## Creating data frames with all coverage values by genes and promoters
     g_coverage_all <- data.frame(Coverage = c(t(genes_data_frame[,31:50])))
     p_coverage_all <- data.frame(Coverage = c(t(promoters_data_frame[,31:50])))
 ```
 
 #### Drawing a "if we make this the maximum coverage value we keep this % of objects" plot.
-
 ```{r, echo = TRUE}
     Y = seq(0, 200000, 1)
 ## Calculating the coverage value for the given quantile (Y).
@@ -121,11 +121,11 @@ par(mfrow=c(1, 2))
     lines(Y, Q)
 ```
 
-> The curves for both datasets have a very rapid increase by lower coverage values. So this confirms that we can use our above mentioned method and loose a very low percentage of data by cutting away a relatively high percentage of the maximum coverage value so we can proceed with the anlyis. 
+> The curves for both datasets have a very rapid increase by lower coverage values. So this confirms that we can use our above mentioned method and loose a very low percentage of data by cutting away a relatively high percentage of the maximum coverage value, so we can proceed with the anlyis. 
 
-### Finding the upper threshold
+### Finding the upper threshold - Ultraloop
 
-> For finding the upper threshold we used the ultraloop. The ultraloop calculates the amount of lines, which would remain if we were to cut at a given coverage value. The way the ultraloop works, is that it turnes the trustworthy calues into NAs and cuts these rows away by a certain coverage threshold. The number of remaining rows is then substracted from the initial number of rows in the dataset. This way it gets faster at every iteration, because the size of the daset is significantly reduced. 
+> For finding the upper threshold we used the ultraloop. The ultraloop calculates the amount of lines, which would remain if we were to cut at a given coverage value. The way the ultraloop works, is that it turnes the trustworthy calues into NAs and cuts these rows away by a certain coverage threshold. The number of remaining rows is then substracted from the initial number of rows in the dataset. This way it gets faster at every iteration, because the size of the daset is significantly reduced.
 
 #### Creating neccesary datasets for the ultraloop for genes.
 ```{r, echo=TRUE}
@@ -141,7 +141,7 @@ remove(g_coverage_all_seq)
 plot(g, type = "l")
 ```
 
-#### Creating neccesary datasets for the ultraloop for genes.
+#### Creating neccesary datasets for the ultraloop for promoters.
 ```{r, echo=TRUE}
 ## Sorting  the previously described p_coverage_all dataset in decreasing order.
 p_coverage_all_seq <- sort(p_coverage_all$Coverage, decreasing = TRUE)
@@ -156,7 +156,7 @@ remove(p_coverage_all_seq)
 plot(p, type = "l")
 ```
 
-#### Creating the analyse dataset and defining its variables.
+#### Creating the analyse dataset and defining its variables for genes.
 ```{r, echo=TRUE}
   analyse <- g_patients
   g_lowercov <- 25 ## We start at 25 as coverage threshold
@@ -177,7 +177,7 @@ plot(p, type = "l")
 
 > At this point we need to change the NAs by the beta values to -1.
 
-#### Setting the NAs to -1
+#### Setting the NAs to -1, by genes 
 ```{r, echo=TRUE}
   ## Separating data set again to beta values and coverage
   analyse_bet <- analyse[ , 1:20]
@@ -195,18 +195,92 @@ plot(p, type = "l")
   remove(analyse_cov, analyse_bet, cov_NAs, bet_NAs)
 ```
 
+#### Ultraloop for genes
+```{r, echo=TRUE}
+g_Ultraloop <- analyse
+vector_remaining_genes_per_coverage <- c()
+nrow_g <- nrow(g_Ultraloop)
+
+for (y in g) {
+  
+  #defining separate dat sets and uppercov
+  g_Ultraloop_bet <- g_Ultraloop[ , 1:20]
+  g_Ultraloop_cov <- g_Ultraloop[ , 21:40]
+  g_uppercov <- y
+  
+  #using the ifelse functions to record which positions in coverage are trustworthy and turning them into NA
+  cov_NAs <- ifelse(g_Ultraloop_cov < g_uppercov, 1, 0 )
+  g_Ultraloop_bet[cov_NAs == 1] <- NA
+  
+  #recombining the data set and cleaning out of trustworthy rows (>6 NAs), because these will be trustworthy on the next run through too
+  g_Ultraloop <- cbind(g_Ultraloop_bet, g_Ultraloop_cov)
+  g_Ultraloop <-
+    g_Ultraloop[!(rowSums(is.na(g_Ultraloop[1:10])) > 6 &
+                    rowSums(is.na(g_Ultraloop[11:20])) > 6) , ]
+
+  #calculating from the deficit of rows how many would've remained and storing them
+  g_cut <- (nrow_g - nrow(g_Ultraloop))
+  vector_remaining_genes_per_coverage <-
+    c(vector_remaining_genes_per_coverage, g_cut)
+  
+  if(g_cut == nrow_g) {
+    break()
+  }
+}
+
+#removing uneccesary data sets
+remove(y, g_Ultraloop, nrow_g, analyse, cov_NAs, g_cut, g_Ultraloop_bet, g_Ultraloop_cov, g_lowercov, g_uppercov)
+
+```
+
+#### Creating the analyse dataset and defining its variables for promoters.
+```{r, echo=TRUE}
+## creating the analyse data set and defining variables
+analyse <- p_patients
+p_lowercov <- 25
+
+## Cleaning out rows with low coverage and separating data sets
+analyse_bet <- analyse[ , 1:20]
+analyse_cov <- analyse[, 21:40]
+
+## Using the ifelse functions to record which positions in coverage should be NA and setting those positions in beta to NA
+cov_NAs <- ifelse(analyse_cov < p_lowercov, 1, 0)
+analyse_bet[cov_NAs == 1] <- NA
+
+## Recombining and cleaning data set
+analyse <- cbind(analyse_bet, analyse_cov)
+analyse <- analyse[!(rowSums(is.na(analyse[1:10])) > 3 | 
+                       rowSums(is.na(analyse[11:20])) > 3),  ]
+
+```
+
+#### Setting NAs to -1 by promoters
+```{r, echo=TRUE}
+# Separating data set again
+analyse_bet <- analyse[ , 1:20]
+analyse_cov <- analyse[, 21:40]
+
+# Using ifelse to set NAs in bet to -1 and set NAs in bet to NA in coverage
+bet_NAs <- ifelse(is.na(analyse_bet), 1, 0 )
+analyse_bet[bet_NAs == 1] <- -1
+analyse_cov[bet_NAs == 1] <- NA
+
+# Recombining and cleaning data set
+analyse <- cbind(analyse_bet, analyse_cov)
+
+# Removing uneccesary data sets
+remove(analyse_cov, analyse_bet, cov_NAs, bet_NAs)
+```
+
+
 #### Ultraloop code for promoters
 ```{r, echo=TRUE}
-## p_Ultraloop is initially defined as the analyse funcion, and is then used by the loop
+  ## p_Ultraloop is initially defined as the analyse funcion, and is then used by the loop
 p_Ultraloop <- analyse
 vector_remaining_promoters_per_coverage <- c()
 nrow_p <- nrow(p_Ultraloop)
 
 for (y in p) {
-  
-  if(which(p == y) %% p_count == 0) {
-    cat("|")
-  }
   
   # Defining separate dat sets and uppercov
   p_Ultraloop_bet <- p_Ultraloop[ , 1:20]
@@ -232,46 +306,102 @@ for (y in p) {
     break()
   }
 }
+  #removing uneccesary data sets
+  remove(y, p_Ultraloop, nrow_p, analyse, cov_NAs, p_cut, p_Ultraloop_bet, p_Ultraloop_cov, p_lowercov, p_uppercov)
 
 ```
-> Now that we have the results we aimed to find the highest alteration of the slope. To determine this we used the kneedle algorithm. 
 
+> Now we want to find the highest alteration of slope of the results. For this we used the kneedle algorithm.
 
-#### Setting the unreliable values to NAs
+#### Kneedle evaluation for genes
+```{r, echo=TRUE}
+g_UltraResults_NA3 <- data.frame(vector_remaining_genes_per_coverage)
+g <- g[1:nrow(g_UltraResults_NA3)]
+g_UltraResults_NA3 <- cbind(g_UltraResults_NA3, g)
+g_UltraResults_NA3 <- data.frame(g_UltraResults_NA3)
+
+colnames(g_UltraResults_NA3) <- c("Remaining_Genes", "Coverage_Value")
+
+#Determining Kneelde m
+X2 <- max(g_UltraResults_NA3$Coverage_Value)
+X1 <- min(g_UltraResults_NA3$Coverage_Value)
+Y2 <- max(g_UltraResults_NA3$Remaining_Genes)
+Y1 <- min(g_UltraResults_NA3$Remaining_Genes) 
+
+kneedle.m <- ((Y2-Y1)/(X2-X1))
+
+## Determining Kneedle Line, Kneedle Line to remaining gene count difference and cbinding
+kneedle.line <- ((g_UltraResults_NA3$Coverage_Value-X1)*kneedle.m)
+g_UltraResults_NA3 <- cbind(g_UltraResults_NA3, kneedle.line)
+
+kneedle.difference <- (g_UltraResults_NA3$Remaining_Genes - g_UltraResults_NA3$kneedle.line)
+g_UltraResults_NA3 <- cbind(g_UltraResults_NA3, kneedle.difference)
+
+## Plotting
+plot(g_UltraResults_NA3$Coverage_Value, g_UltraResults_NA3$Remaining_Genes, type = "n")
+lines(g_UltraResults_NA3$Coverage_Value, g_UltraResults_NA3$Remaining_Genes)
+lines(g_UltraResults_NA3$Coverage_Value, g_UltraResults_NA3$kneedle.line)
+lines(g_UltraResults_NA3$Coverage_Value, g_UltraResults_NA3$kneedle.difference)
+## Make sure to manually check the maximum of g_UltraResults_NA3$kneedle.difference and check the corresponding Coverage_Value!
+
+remove(X1, X2, Y1, Y2, kneedle.difference, kneedle.line, g)
+
+## Getting coverage at the knee
+g_uppercov_row <- which.max(g_UltraResults_NA3[, 4])
+g_uppercov <- g_UltraResults_NA3[g_uppercov_row,2]
+
+remove(g_uppercov_row, g_count, kneedle.m)
+
+```
+
 > Now that the thresholds are identified the beta values with a corresponding  coverage value <25 and > 98525 for genes will be set to NAs. For prmoters we used <25 and > 14175 as thresholds based on the kneedle analyisis as well.
 
-```{r}
-# Loop for setting unreliable values to NAs by genes.
-for (j in 21:40) {
-  for (i in 1:nrow(g_patients)) {
-    
-    if(g_patients[i,j] < 25 | g_patients[i,j] >= 98525){
-      g_patients[i,j-20] <- NA
-    }
-  }
-}
 
-# Loop for setting unreliable values to NAs by promoters.
-for (j in 21:40) {
-  for (i in 1:nrow(p_patients)) {
-    
-    if(p_patients[i,j] < 25 | p_patients[i,j] >= 14175){
-      p_patients[i,j-20] <- NA
-    }
-  }
-}
+### Cleaning out unreliable rows with unreliable coverage and too many NAs
+
+#### Setting the unrelaible beta values to NAs based on the newly gained coverage values
+````{r, echo=TRUE}
+  # separating our data set for ifelse apllication
+  g_pat_bet <- g_patients[ , 1:20]
+  g_pat_cov <- g_patients[, 21:40]
+  
+  p_pat_bet <- p_patients[ , 1:20]
+  p_pat_cov <- p_patients[, 21:40]
+
+  # defining upper and lower coverage values
+  g_lowercov <- 25
+  g_uppercov <- 98525
+  
+  p_lowercov <- 25
+  p_uppercov <- 14175
+  
+  #using the ifelse functions to record which positions in coverage should be NA
+  g_NAs <- ifelse(g_pat_cov < g_lowercov | g_pat_cov >= g_uppercov, 1, 0 )
+  p_NAs <- ifelse(p_pat_cov < p_lowercov | p_pat_cov >= p_uppercov, 1, 0 )
+  
+  #turning those positions into NA
+  g_pat_bet[g_NAs == 1] <- NA
+  p_pat_bet[p_NAs == 1] <- NA
+  
+  #recombining our dataset
+  g_pat_covNA <- cbind(g_pat_bet, g_pat_cov)
+  p_pat_covNA <- cbind(p_pat_bet, p_pat_cov)
 ```
 
-> Next the rows with more than 3 NAs for at least in one patient group will be removed since these genes or promoters are unrelaible. 
+> Next the rows with more than 3 NAs for at least in one patient group will be removed since these genes or promoters are unrelaible.
 
-```{r}
-# Removing lines with more than 3 NAs for at least one cohort. 
-genes_clean <- g_patients[!(rowSums(is.na(g_patients[1:10])) > 3 | 
-                              rowSums(is.na(g_patients[11:20])) > 3),  ]
-promoters_clean <- p_patients[!(rowSums(is.na(p_patients[1:10])) > 3 | 
-                                  rowSums(is.na(p_patients[11:20])) > 3),  ]
+#### leaning out rows that harbour cohorts with too many NAs 
+```{r, echo=TRUE}
+  genes_clean <- g_pat_covNA[!(rowSums(is.na(g_pat_covNA[1:10])) > 3 | 
+                                 rowSums(is.na(g_pat_covNA[11:20])) > 3),  ]
+  
+  promoters_clean <- p_pat_covNA[!(rowSums(is.na(p_pat_covNA[1:10])) > 3 | 
+                                     rowSums(is.na(p_pat_covNA[11:20])) > 3),  ]
+  
+  # Removing uneccesary data sets
+  remove(g_lowercov, g_uppercov, g_NAs, g_pat_bet, g_pat_cov, g_pat_covNA, g_patients)
+  remove(p_lowercov, p_uppercov, p_NAs, p_pat_bet, p_pat_cov, p_pat_covNA, p_patients)
 
-remove(g_patients, p_patients, i, j)
 ```
 
 
@@ -318,7 +448,6 @@ p_M_NA <- data.frame(p_M_NA)
 
 
 #### Code for replacing all NAs with rnorm10 imputation.
-
 ```{r, echo = TRUE}
 ## Defing the fg_rnorm10_imputation function.
 fg_rnorm10_imputation <- function(x) {
