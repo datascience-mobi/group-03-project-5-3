@@ -2,16 +2,31 @@
 title: "Identifying DMRs"
 author: "Leo Burmedi, Pierre De Marinis, Konstantin Fischer, Daniel Ürge"
 date: "6/10/2019"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 # Introduction
 
 > Differentially methylated regions (DMRs) ... 
 
-## Loading the data and naming the frames.
-```{r, echo=TRUE} 
+### Annotation for naming of dataframes and functions.
 
+ Code      | Annotation
+ --------- | ------------------------------------------------------------------
+ g_[text]  | dataframe derived from the genes_data_frame dataset  
+ p_[text]  | dataframe derived from the promoters_data_frame dataset 
+ _Resource | resource dataset, includes the remaining rows after quality conrol with Ensembl ID, symbol and the fold change 
+ _T        |dataframe, that is than used for the t-test, includes number of NAs (n), means (m), standard deviations (sd) for each row
+i,j, y     | vectrors only used by function and loops
+f_[text]   | function
+
+
+
+### Loading the data and naming the frames.
+```{r, echo=TRUE} 
+## Loading the dataframe and naming in input_data is neccesary first for the code to run threw properly. 
 genes_data_framexy <- input_data$genes
 promoters_data_framexy <- input_data$promoters
 cpgislands_data_frame <- input_data$cpgislands
@@ -113,7 +128,6 @@ par(mfrow=c(1, 2))
 > For finding the upper threshold we used the ultraloop. The ultraloop calculates the amount of lines, which would remain if we were to cut at a given coverage value. The way the ultraloop works, is that it turnes the trustworthy calues into NAs and cuts these rows away by a certain coverage threshold. The number of remaining rows is then substracted from the initial number of rows in the dataset. This way it gets faster at every iteration, because the size of the daset is significantly reduced. 
 
 #### Creating neccesary datasets for the ultraloop for genes.
-
 ```{r, echo=TRUE}
 ## Sorting  the previously described g_coverage_all dataset in decreasing order.
 g_coverage_all_seq <- sort(g_coverage_all$Coverage, decreasing = TRUE)
@@ -134,6 +148,7 @@ p_coverage_all_seq <- sort(p_coverage_all$Coverage, decreasing = TRUE)
 p_coverage_all_seq <- p_coverage_all_seq[1:200]
 p_coverage_all_seq <- sort(p_coverage_all_seq)
 
+## p will be the sequnce, that ultraloop goes threw
 p <- c(seq(25, min(p_coverage_all_seq), 50), p_coverage_all_seq)
 p_count <- floor(length(p)/100)
 remove(p_coverage_all_seq)
@@ -142,45 +157,85 @@ plot(p, type = "l")
 ```
 
 #### Creating the analyse dataset and defining its variables.
-```{r. echo=TRUE}
-analyse <- g_patients
-g_lowercov <- 25
+```{r, echo=TRUE}
+  analyse <- g_patients
+  g_lowercov <- 25 ## We start at 25 as coverage threshold
 
-#cleaning out rows with low coverage
-  # separating data set
+  ## Separating data set
   analyse_bet <- analyse[ , 1:20]
   analyse_cov <- analyse[, 21:40]
   
-  #using the ifelse functions to record which positions in coverage should be NA and setting those positions in beta to NA
+  ## Using the ifelse functions to record which positions in coverage should be NA and setting those positions in beta to NA
   cov_NAs <- ifelse(analyse_cov < g_lowercov, 1, 0)
   analyse_bet[cov_NAs == 1] <- NA
   
-  # recombining and cleaning data set
+  ## Recombining and cleaning data set
   analyse <- cbind(analyse_bet, analyse_cov)
   analyse <- analyse[!(rowSums(is.na(analyse[1:10])) > 3 | 
                          rowSums(is.na(analyse[11:20])) > 3),  ]
+```
 
-#setting NAs to -1 and coverage NAs
-  # separating data set again
+> At this point we need to change the NAs by the beta values to -1.
+
+#### Setting the NAs to -1
+```{r, echo=TRUE}
+  ## Separating data set again to beta values and coverage
   analyse_bet <- analyse[ , 1:20]
   analyse_cov <- analyse[, 21:40]
   
-  #using ifelse to set NAs in bet to -1 and set NAs in bet to NA in coverage
+  ## Using ifelse to set NAs in beta to -1 and set NAs in beta to NA in coverage
   bet_NAs <- ifelse(is.na(analyse_bet), 1, 0 )
   analyse_bet[bet_NAs == 1] <- -1
   analyse_cov[bet_NAs == 1] <- NA
 
-  # recombining and cleaning data set
+  ## Recombining and cleaning data set
   analyse <- cbind(analyse_bet, analyse_cov)
 
-# removing uneccesary data sets
-remove(analyse_cov, analyse_bet, cov_NAs, bet_NAs)
+  ## Removing uneccesary data sets
+  remove(analyse_cov, analyse_bet, cov_NAs, bet_NAs)
 ```
 
-> Now we plotted the results and aimed to find the highest alteration of the slope. To determine this we used the kneedle algorithm. 
+#### Ultraloop code for promoters
+```{r, echo=TRUE}
+## p_Ultraloop is initially defined as the analyse funcion, and is then used by the loop
+p_Ultraloop <- analyse
+vector_remaining_promoters_per_coverage <- c()
+nrow_p <- nrow(p_Ultraloop)
 
-[KNEEDLE CODE]
-[PLOT]
+for (y in p) {
+  
+  if(which(p == y) %% p_count == 0) {
+    cat("|")
+  }
+  
+  # Defining separate dat sets and uppercov
+  p_Ultraloop_bet <- p_Ultraloop[ , 1:20]
+  p_Ultraloop_cov <- p_Ultraloop[ , 21:40]
+  p_uppercov <- y
+  
+  # Using the if-else functions to record which positions in coverage are trustworthy and turning them into NA
+  cov_NAs <- ifelse(p_Ultraloop_cov < p_uppercov, 1, 0 )
+  p_Ultraloop_bet[cov_NAs == 1] <- NA
+  
+  # Recombining the data set and cleaning out of trustworthy rows (>6 NAs), because these will be trustworthy on the next run through too
+  p_Ultraloop <- cbind(p_Ultraloop_bet, p_Ultraloop_cov)
+  p_Ultraloop <-
+    p_Ultraloop[!(rowSums(is.na(p_Ultraloop[1:10])) > 6 &
+                    rowSums(is.na(p_Ultraloop[11:20])) > 6) , ]
+  
+  #calculating from the deficit of rows how many would've remained and storing them
+  p_cut <- (nrow_p - nrow(p_Ultraloop))
+  vector_remaining_promoters_per_coverage <-
+    c(vector_remaining_promoters_per_coverage, p_cut)
+  
+  if(p_cut == nrow_p) {
+    break()
+  }
+}
+
+```
+> Now that we have the results we aimed to find the highest alteration of the slope. To determine this we used the kneedle algorithm. 
+
 
 #### Setting the unreliable values to NAs
 > Now that the thresholds are identified the beta values with a corresponding  coverage value <25 and > 98525 for genes will be set to NAs. For prmoters we used <25 and > 14175 as thresholds based on the kneedle analyisis as well.
@@ -370,7 +425,7 @@ remove(j, jcount, genes_clean, genes_clean_reduced, promoters_clean, promoters_c
 
 
 ### Creating datasets (g_T and p_T) for the t-test with the neccesary information
-
+#### Splitting datasets by patient cohorts.
 ```{r, echo=TRUE}
 ## Splitting datasets to AML and Mono
 g_M_NA_AML <- g_M_NA[, 1:10]
@@ -378,8 +433,12 @@ g_M_NA_mon <- g_M_NA[, 11:20]
 
 p_M_NA_AML <- p_M_NA[, 1:10]
 p_M_NA_mon <- p_M_NA[, 11:20]
+```
 
-## Defining a function (f_MtoT) that will determine the values required for t-tests later. This includes mean value (m), standard deviation (sd) and number of NAs (n).
+#### Defining the function f_MtoT
+> The function f_MtoT will determine the values required for t-tests later. This includes mean value (m), standard deviation (sd) and number of NAs (n).
+
+```{r, echo=TRUE}
 f_MtoT <- function(x) {
   
   
@@ -389,8 +448,11 @@ f_MtoT <- function(x) {
   
   return(c(m,sd,n))
 }
+```
 
-## Application of function f_MtoT to genes and promoters
+#### Application of f_MtoT to genes and promoters
+```{r, echo=TRUE}
+## Using the appyy function to run f_MtoT
 g_T_AML <- t(apply(g_M_NA_AML, 1, f_MtoT))
 g_T_mon <- t(apply(g_M_NA_mon, 1, f_MtoT))
 
