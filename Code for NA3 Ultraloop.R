@@ -106,34 +106,34 @@ remove(y, g_Ultraloop, nrow_g, analyse, cov_NAs, g_cut, g_Ultraloop_bet, g_Ultra
 analyse <- p_patients
 p_lowercov <- 25
 
-#cleaning out rows with low coverage
+# Cleaning out rows with low coverage
 # separating data set
 analyse_bet <- analyse[ , 1:20]
 analyse_cov <- analyse[, 21:40]
 
-#using the ifelse functions to record which positions in coverage should be NA and setting those positions in beta to NA
+# Using the ifelse functions to record which positions in coverage should be NA and setting those positions in beta to NA
 cov_NAs <- ifelse(analyse_cov < p_lowercov, 1, 0)
 analyse_bet[cov_NAs == 1] <- NA
 
-# recombining and cleaning data set
+# Recombining and cleaning data set
 analyse <- cbind(analyse_bet, analyse_cov)
 analyse <- analyse[!(rowSums(is.na(analyse[1:10])) > 3 | 
                        rowSums(is.na(analyse[11:20])) > 3),  ]
 
-#setting NAs to -1 and coverage NAs
-# separating data set again
+# Setting NAs to -1 and coverage NAs
+# Separating data set again
 analyse_bet <- analyse[ , 1:20]
 analyse_cov <- analyse[, 21:40]
 
-#using ifelse to set NAs in bet to -1 and set NAs in bet to NA in coverage
+# Using ifelse to set NAs in bet to -1 and set NAs in bet to NA in coverage
 bet_NAs <- ifelse(is.na(analyse_bet), 1, 0 )
 analyse_bet[bet_NAs == 1] <- -1
 analyse_cov[bet_NAs == 1] <- NA
 
-# recombining and cleaning data set
+# Recombining and cleaning data set
 analyse <- cbind(analyse_bet, analyse_cov)
 
-# removing uneccesary data sets
+# Removing uneccesary data sets
 remove(analyse_cov, analyse_bet, cov_NAs, bet_NAs)
 
 ###################################################################################################
@@ -148,16 +148,16 @@ for (y in p) {
     cat("|")
   }
   
-  #defining separate dat sets and uppercov
+  # Defining separate dat sets and uppercov
   p_Ultraloop_bet <- p_Ultraloop[ , 1:20]
   p_Ultraloop_cov <- p_Ultraloop[ , 21:40]
   p_uppercov <- y
   
-  #using the ifelse functions to record which positions in coverage are trustworthy and turning them into NA
+  # Using the if-else functions to record which positions in coverage are trustworthy and turning them into NA
   cov_NAs <- ifelse(p_Ultraloop_cov < p_uppercov, 1, 0 )
   p_Ultraloop_bet[cov_NAs == 1] <- NA
   
-  #recombining the data set and cleaning out of trustworthy rows (>6 NAs), because these will be trustworthy on the next run through too
+  # Recombining the data set and cleaning out of trustworthy rows (>6 NAs), because these will be trustworthy on the next run through too
   p_Ultraloop <- cbind(p_Ultraloop_bet, p_Ultraloop_cov)
   p_Ultraloop <-
     p_Ultraloop[!(rowSums(is.na(p_Ultraloop[1:10])) > 6 &

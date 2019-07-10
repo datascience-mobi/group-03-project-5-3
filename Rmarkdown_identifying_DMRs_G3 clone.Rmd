@@ -1,0 +1,474 @@
+---
+title: "Identifying DMRs"
+author: "Leo Burmedi, Pierre De Marinis, Konstantin Fischer, Daniel Ürge"
+date: "6/10/2019"
+output: html_document
+---
+
+# Introduction
+
+> Differentially methylated regions (DMRs) ... 
+
+## Loading the data and naming the frames.
+```{r, echo=TRUE} 
+
+genes_data_framexy <- input_data$genes
+promoters_data_framexy <- input_data$promoters
+cpgislands_data_frame <- input_data$cpgislands
+tiling_data_frame <- input_data$tiling
+remove(tiling_data_frame, cpgislands_data_frame, input_data)
+```
+
+> From these datasets only the genes and the promoters will be relevant for the analysis because thay contain the highest amount of relevant information for us.  
+
+# Quality control
+
+> The goal of Qualtity control is to make the dataset as suited as possible for the analyis. This includes: removing uncessary variables, getting rid NAs, removing information that can produce fallicous results.
+
+### Removing chromosome X and Y.
+
+> Chromosome X is removed because it can be hypermethylated by female patients and thus influence the analysis. Y Chromosome is removed because there are not enough male patients to make reliable statistical statements.
+
+```{r, echo = TRUE}
+## Removing chromosome X and Y.
+    genes_data_frame <- data.frame(genes_data_framexy[!(genes_data_framexy$Chromosome == "chrX" | genes_data_framexy$Chromosome == "chrY"),])
+    promoters_data_frame <-     data.frame(promoters_data_framexy[!(promoters_data_framexy$Chromosome == "chrX" | promoters_data_framexy$Chromosome == "chrY"),])
+    remove(genes_data_framexy, promoters_data_framexy)
+```
+
+### Distribution of beta values by healty and AML patients.
+
+> First we wanted to check wheather the distributions of beta values differ between AML and healty patients.  
+
+```{r, echo = TRUE} 
+## Creating dataframes for genes and prmoters with all beta values without NAs.
+    g_AML_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,11:20]))))
+    g_Mono_bedall <- data.frame(Beta = c(t(na.omit(genes_data_frame[,21:30]))))
+## Transforming the above created dataframes into a data frame where coverage is the only variable.   
+    p_AML_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,11:20]))))
+    p_Mono_bedall <- data.frame(Beta = c(t(na.omit(promoters_data_frame[,21:30]))))
+```
+
+#### Distribution of all beta values by AML or Mono patiens in the genes and promoters dataset.
+```{r, echo = TRUE}
+par(mfrow=c(1, 2))    
+    hist(g_Mono_bedall$Beta, main = "Distribution beta Mono genes", xlab = "beta value", col = "forestgreen", breaks = 50, ylim = c(0, 80000))
+    hist(g_AML_bedall$Beta, main = "Distribution beta AML genes", xlab = "beta value", col = "red", breaks = 50)
+```  
+
+```{r, echo = TRUE}
+    par(mfrow=c(1, 2))    
+    hist(p_Mono_bedall$Beta, main = "Distribution beta Mono promoters", xlab = "beta value", col = "forestgreen", breaks = 50, ylim = c(0, 80000))
+    hist(p_AML_bedall$Beta, main = "Distribution beta AML promoters", xlab = "beta value", col = "red", breaks = 50)
+```  
+
+> It can be seen for both promoters and genes, that the two plots have a slightly different distribution.
+
+### Removing unneccesary variables
+
+> For the analysis we only need the beta and the coverage values of the patients.
+
+```{r, echo=TRUE}
+    g_patients <- data.frame(genes_data_frame[11:50])
+    p_patients <- data.frame(promoters_data_frame[11:50])
+```
+
+### Setting coverage thresholds and handling NAs
+
+> If a coverage value is too low that means there are not enough reads for given sequence. If it is too high however that might be due to overlapping of repeated sequences by the alignment.  This can render our analysis unreliable so we need to find sensible thresholds. The lower coverage threshold was set by 25 based on literature (Ziller et al. 2015). For the higher however we came up with the solution to find the value where we would loose the lowest percentage of data by loosing the highest percentage of coverage values. To check if this is even possible we made two plots to evalueate the function. Since the two datasets have a different distribution we need to find seperate upper thresholds.
+
+> Once we find the threshold we will convert all beta values with an unrelaible corresponding coverage value to NAs. Next we will remove all rows with more than 3 NAs for one cohort.
+
+```{r,  echo=TRUE} 
+    ## Creating data frames with all coverage values by genes and promoters
+    g_coverage_all <- data.frame(Coverage = c(t(genes_data_frame[,31:50])))
+    p_coverage_all <- data.frame(Coverage = c(t(promoters_data_frame[,31:50])))
+```
+
+#### Drawing a "if we make this the maximum coverage value we keep this % of objects" plot.
+
+```{r, echo = TRUE}
+    Y = seq(0, 200000, 1)
+## Calculating the coverage value for the given quantile (Y).
+    Q = ecdf(g_coverage_all$Coverage) (Y)
+## Plotting quntiles of the dataset against the quaniles for the coverage values by genes based on the previously explained g_coverage_all dataset. 
+    plot(Y, Q, type = "n", main = "Quantiles for coverage values by genes", xlab = "Coverage value", ylab = "Quantile")
+    lines(Y, Q)
+```
+
+
+```{r, echo = TRUE}
+    Y = seq(0, 200000, 1)
+## Calculating the coverage value for the given quantile (Y).
+    Q = ecdf(p_coverage_all$Coverage) (Y)
+  ## Plotting quntiles of the dataset against the quaniles for the coverage values by promoters based on the previously explained p_coverage_all dataset.
+    plot(Y, Q, type = "n", main = "Quantiles for coverage values by promoters", xlab = "Coverage value", ylab = "Quantile")
+    lines(Y, Q)
+```
+
+> The curves for both datasets have a very rapid increase by lower coverage values. So this confirms that we can use our above mentioned method and loose a very low percentage of data by cutting away a relatively high percentage of the maximum coverage value so we can proceed with the anlyis. 
+
+### Finding the upper threshold
+
+> For finding the upper threshold we used the ultraloop. The ultraloop calculates the amount of lines, which would remain if we were to cut at a given coverage value. The way the ultraloop works, is that it turnes the trustworthy calues into NAs and cuts these rows away by a certain coverage threshold. The number of remaining rows is then substracted from the initial number of rows in the dataset. This way it gets faster at every iteration, because the size of the daset is significantly reduced. 
+
+#### Creating neccesary datasets for the ultraloop for genes.
+
+```{r, echo=TRUE}
+## Sorting  the previously described g_coverage_all dataset in decreasing order.
+g_coverage_all_seq <- sort(g_coverage_all$Coverage, decreasing = TRUE)
+g_coverage_all_seq <- g_coverage_all_seq[1:200]
+g_coverage_all_seq <- sort(g_coverage_all_seq)
+
+g <- c(seq(25, min(g_coverage_all_seq), 100), g_coverage_all_seq)
+g_count <- floor(length(g)/100)
+remove(g_coverage_all_seq)
+
+plot(g, type = "l")
+```
+
+#### Creating neccesary datasets for the ultraloop for genes.
+```{r, echo=TRUE}
+## Sorting  the previously described p_coverage_all dataset in decreasing order.
+p_coverage_all_seq <- sort(p_coverage_all$Coverage, decreasing = TRUE)
+p_coverage_all_seq <- p_coverage_all_seq[1:200]
+p_coverage_all_seq <- sort(p_coverage_all_seq)
+
+p <- c(seq(25, min(p_coverage_all_seq), 50), p_coverage_all_seq)
+p_count <- floor(length(p)/100)
+remove(p_coverage_all_seq)
+
+plot(p, type = "l")
+```
+
+#### Creating the analyse dataset and defining its variables.
+```{r. echo=TRUE}
+analyse <- g_patients
+g_lowercov <- 25
+
+#cleaning out rows with low coverage
+  # separating data set
+  analyse_bet <- analyse[ , 1:20]
+  analyse_cov <- analyse[, 21:40]
+  
+  #using the ifelse functions to record which positions in coverage should be NA and setting those positions in beta to NA
+  cov_NAs <- ifelse(analyse_cov < g_lowercov, 1, 0)
+  analyse_bet[cov_NAs == 1] <- NA
+  
+  # recombining and cleaning data set
+  analyse <- cbind(analyse_bet, analyse_cov)
+  analyse <- analyse[!(rowSums(is.na(analyse[1:10])) > 3 | 
+                         rowSums(is.na(analyse[11:20])) > 3),  ]
+
+#setting NAs to -1 and coverage NAs
+  # separating data set again
+  analyse_bet <- analyse[ , 1:20]
+  analyse_cov <- analyse[, 21:40]
+  
+  #using ifelse to set NAs in bet to -1 and set NAs in bet to NA in coverage
+  bet_NAs <- ifelse(is.na(analyse_bet), 1, 0 )
+  analyse_bet[bet_NAs == 1] <- -1
+  analyse_cov[bet_NAs == 1] <- NA
+
+  # recombining and cleaning data set
+  analyse <- cbind(analyse_bet, analyse_cov)
+
+# removing uneccesary data sets
+remove(analyse_cov, analyse_bet, cov_NAs, bet_NAs)
+```
+
+> Now we plotted the results and aimed to find the highest alteration of the slope. To determine this we used the kneedle algorithm. 
+
+[KNEEDLE CODE]
+[PLOT]
+
+#### Setting the unreliable values to NAs
+> Now that the thresholds are identified the beta values with a corresponding  coverage value <25 and > 98525 for genes will be set to NAs. For prmoters we used <25 and > 14175 as thresholds based on the kneedle analyisis as well.
+
+```{r}
+# Loop for setting unreliable values to NAs by genes.
+for (j in 21:40) {
+  for (i in 1:nrow(g_patients)) {
+    
+    if(g_patients[i,j] < 25 | g_patients[i,j] >= 98525){
+      g_patients[i,j-20] <- NA
+    }
+  }
+}
+
+# Loop for setting unreliable values to NAs by promoters.
+for (j in 21:40) {
+  for (i in 1:nrow(p_patients)) {
+    
+    if(p_patients[i,j] < 25 | p_patients[i,j] >= 14175){
+      p_patients[i,j-20] <- NA
+    }
+  }
+}
+```
+
+> Next the rows with more than 3 NAs for at least in one patient group will be removed since these genes or promoters are unrelaible. 
+
+```{r}
+# Removing lines with more than 3 NAs for at least one cohort. 
+genes_clean <- g_patients[!(rowSums(is.na(g_patients[1:10])) > 3 | 
+                              rowSums(is.na(g_patients[11:20])) > 3),  ]
+promoters_clean <- p_patients[!(rowSums(is.na(p_patients[1:10])) > 3 | 
+                                  rowSums(is.na(p_patients[11:20])) > 3),  ]
+
+remove(g_patients, p_patients, i, j)
+```
+
+
+# Normalization 
+> In oder to be able to perform a Student t-test later we need to nomalize the data. This was done by converting the beta values to M values. This has many advantages: M values are colse to a normal distribution, range from infinity to negative infinity and have a stable variance. 
+
+> Eqation for imputation: $M =\log_{2}(\frac{\beta}{1-\beta})$
+
+### Code for normalization
+```{r}
+genes_clean_reduced <- genes_clean[,1:20]
+promoters_clean_reduced <- promoters_clean[,1:20]
+
+# Since 0 and 1 render inf or -inf as results we used 0.0000000001, 0.9999999999 respectively in the calculation instead.
+f_BetaToM <- function(x) {
+  
+  if(!(is.na(x))){
+    
+    if(x == 1){
+      x <- 0.9999999999
+    }
+    
+    if(x == 0) {
+      x <- 0.0000000001
+    }
+    
+    x = log2(x / (1 - x))
+  }
+  
+  return(x)
+}
+
+g_M_NA <- apply(genes_clean_reduced, c(1,2), f_BetaToM)
+g_M_NA <- data.frame(g_M_NA)
+
+p_M_NA <- apply(promoters_clean_reduced, c(1,2), f_BetaToM)
+p_M_NA <- data.frame(p_M_NA)
+```
+
+# Imputation
+> At this point still many NAs remain in the datassets, so we want to handle them. We could either get rid of all lines which still include NAs, or impute them. In order to keep as much information as possible we decided to impute the NAs. There are multiple models to do this and we tested out some on our data to find the best one. The reason we decided to impute after the normalization is ...
+
+### Imputation models
+
+
+#### Code for replacing all NAs with rnorm10 imputation.
+
+```{r, echo = TRUE}
+## Defing the fg_rnorm10_imputation function.
+fg_rnorm10_imputation <- function(x) {
+  
+  
+  workingrow <- g_M_NA[x, ]
+ 
+## If a row has more than 0 NAs they are replaced with an existing value in the same row. 
+  if(rowSums(is.na(workingrow) > 0)) {
+    replacement_positions <- which(is.na(workingrow))
+    rowvalues <- workingrow[!(is.na(workingrow))]
+    
+    winnercandidates <- c(rep(0, (1+length(replacement_positions))))
+    
+    for(i in 1:10) {
+      set.seed(x + nrow(g_M_NA)*i)
+      rowextend <- c(rnorm(mean = mean(rowvalues), sd = sd(rowvalues), length(replacement_positions)))
+      rowvalues_ext <- c(rowvalues, rowextend)
+      
+      preextendstats <- c(mean(rowvalues), sd(rowvalues))
+      postextendstats <- c(mean(rowvalues_ext), sd(rowvalues_ext))
+      impdiff <- (postextendstats-preextendstats)
+      impdiff <- (sum(abs(impdiff)))
+      
+      candidate <- c(impdiff, rowextend)
+      winnercandidates <- cbind(winnercandidates, candidate)
+      
+    }
+    
+    winnercandidates <- data.frame(winnercandidates)
+    winnercandidates <- winnercandidates[, 2:ncol(winnercandidates)]
+    winnercol <- which.min(winnercandidates[1, ])
+    winner <- winnercandidates[2:nrow(winnercandidates), winnercol]
+    
+    workingrow[replacement_positions] <- winner
+  }
+  return(workingrow)
+}
+
+fp_rnorm10_imputation <- function(x) {
+  
+  if(x %% jcount == 0) {
+    cat("|")
+  }
+  
+  workingrow <- p_M_NA[x, ]
+  
+  if(rowSums(is.na(workingrow) > 0)) {
+    replacement_positions <- which(is.na(workingrow))
+    rowvalues <- workingrow[!(is.na(workingrow))]
+    
+    winnercandidates <- c(rep(0, (1+length(replacement_positions))))
+    
+    for(i in 1:10) {
+      set.seed(x + nrow(p_M_NA)*i)
+      rowextend <- c(rnorm(mean = mean(rowvalues), sd = sd(rowvalues), length(replacement_positions)))
+      rowvalues_ext <- c(rowvalues, rowextend)
+      
+      preextendstats <- c(mean(rowvalues), sd(rowvalues))
+      postextendstats <- c(mean(rowvalues_ext), sd(rowvalues_ext))
+      impdiff <- (postextendstats-preextendstats)
+      impdiff <- (sum(abs(impdiff)))
+      
+      candidate <- c(impdiff, rowextend)
+      winnercandidates <- cbind(winnercandidates, candidate)
+      
+    }
+    
+    winnercandidates <- data.frame(winnercandidates)
+    winnercandidates <- winnercandidates[, 2:ncol(winnercandidates)]
+    winnercol <- which.min(winnercandidates[1, ])
+    winner <- winnercandidates[2:nrow(winnercandidates), winnercol]
+    
+    workingrow[replacement_positions] <- winner
+  }
+  return(workingrow)
+}
+
+j <- data.frame(seq(1, nrow(g_M_NA), 1))
+jcount <- floor(nrow(j)/100)
+
+g_Mvalues <- apply(j, c(1,2) , fg_rnorm10_imputation)
+g_Mvalues <- matrix(unlist(g_Mvalues), ncol = nrow(g_M_NA), nrow = 20)
+g_Mvalues <- data.frame(t(g_Mvalues))
+
+j <- data.frame(seq(1, nrow(p_M_NA), 1))
+jcount <- floor(nrow(j)/100)
+
+p_Mvalues <- apply(j, c(1,2) , fp_rnorm10_imputation)
+p_Mvalues <- matrix(unlist(p_Mvalues), ncol = nrow(p_M_NA), nrow = 20)
+p_Mvalues <- data.frame(t(p_Mvalues))
+
+## Recreating colnames and rownames.
+colnames(g_Mvalues) <- colnames(g_M_NA)
+rownames(g_Mvalues) <- rownames(g_M_NA)
+
+colnames(p_Mvalues) <- colnames(p_M_NA)
+rownames(p_Mvalues) <- rownames(p_M_NA)
+
+## Removing the datasets that are no lonher needed.
+remove(j, jcount, genes_clean, genes_clean_reduced, promoters_clean, promoters_clean_reduced)
+
+```
+
+
+### Creating datasets (g_T and p_T) for the t-test with the neccesary information
+
+```{r, echo=TRUE}
+## Splitting datasets to AML and Mono
+g_M_NA_AML <- g_M_NA[, 1:10]
+g_M_NA_mon <- g_M_NA[, 11:20]
+
+p_M_NA_AML <- p_M_NA[, 1:10]
+p_M_NA_mon <- p_M_NA[, 11:20]
+
+## Defining a function (f_MtoT) that will determine the values required for t-tests later. This includes mean value (m), standard deviation (sd) and number of NAs (n).
+f_MtoT <- function(x) {
+  
+  
+  m <- mean(x, na.rm = TRUE)
+  sd  <- sd(x, na.rm = TRUE)
+  n <- sum(!(is.na(x)))
+  
+  return(c(m,sd,n))
+}
+
+## Application of function f_MtoT to genes and promoters
+g_T_AML <- t(apply(g_M_NA_AML, 1, f_MtoT))
+g_T_mon <- t(apply(g_M_NA_mon, 1, f_MtoT))
+
+p_T_AML <- t(apply(p_M_NA_AML, 1, f_MtoT))
+p_T_mon <- t(apply(p_M_NA_mon, 1, f_MtoT))
+
+## Naming and formatting the g_T and p_T datasets and removing the datasets that are no longer neccesary.
+g_T <- cbind(g_T_AML, g_T_mon)
+colnames(g_T) <- c("Mean AML", "SD AML", "N AML", "Mean Mono", "SD Mono", "N Mono")
+g_T <- data.frame(g_T)
+
+p_T <- cbind(p_T_AML, p_T_mon)
+colnames(p_T) <- c("Mean AML", "SD AML", "N AML", "Mean Mono", "SD Mono", "N Mono")
+p_T <- data.frame(p_T)
+
+remove(g_T_AML, g_T_mon)
+remove(p_T_AML, p_T_mon)
+remove(f_BetaToM, fg_rnorm10_imputation, fp_rnorm10_imputation, f_MtoT)
+
+```
+
+### Generating the resource dataset
+
+> The resource dataset (g_Resource, p_Resource) includes the log2 foldchange, the ensembl ID and the symbols, if available, for genes and promoters each. The foldchange is defined as g_RB_AML_m/g_RB_mon_m in our case. It describes how much the methylation changes among the patient groups in one row. This dataset is useed later to search for the DMR suspects.  
+
+```{r, echo=TRUE}
+
+
+## Collecting the mean of the m values, as per the m distribution, the mean represents the most common i.e. normal value from each cohort by promoters or genes.
+g_RM_AML_m <- data.frame(apply(g_M_NA_AML, 1, mean, na.rm = TRUE))
+g_RM_mon_m <- data.frame(apply(g_M_NA_mon, 1, mean, na.rm = TRUE))
+
+p_RM_AML_m <- data.frame(apply(p_M_NA_AML, 1, mean, na.rm = TRUE))
+p_RM_mon_m <- data.frame(apply(p_M_NA_mon, 1, mean, na.rm = TRUE))
+
+
+## Defining a function that converts the "normal" M value for each sequence's cohort to the corresponding "normal" beta value
+f_MtoBeta <- function(x) {
+  
+  x = (2^x)/(1 + 2^x)
+  return(x)
+  
+}
+```
+
+ >  Oddities of the data set resulting from application of the above funtion: if the original gene was 1 for all samples in beta, the result here is 1, even though we changed those 1s to 0.999...9, so r has rounded here. However, genes that were 0 in bet are returned as 0.00...01 here, because we also changed them along the way. R has not rounded here. Very strange but coincidentally convenient for future formatting. Otherwise we wouldve had to set 0.9...9 to 1, and leave 0.0...1 because we can't divide by zero.
+
+```{r, echo=TRUE}
+g_RB_AML_m <- apply(g_RM_AML_m, c(1,2), f_MtoBeta)
+g_RB_mon_m <- apply(g_RM_mon_m, c(1,2), f_MtoBeta)
+p_RB_AML_m <- apply(p_RM_AML_m, c(1,2), f_MtoBeta)
+p_RB_mon_m <- apply(p_RM_mon_m, c(1,2), f_MtoBeta)
+
+## Calculating log2 foldchange from Mon to AML (so that the "normal" variety / 0 fold change is the healthy one)
+g_RB_foldchange <- log2(g_RB_AML_m/g_RB_mon_m)
+p_RB_foldchange <- log2(p_RB_AML_m/p_RB_mon_m)
+
+## Extracting symbols for later from genes and promoters
+g_R_Symbols <- data.frame(genes_data_frame$symbol)
+rownames(g_R_Symbols) <- rownames(genes_data_frame)
+
+p_R_Symbols <- data.frame(promoters_data_frame$symbol)
+rownames(p_R_Symbols) <- rownames(promoters_data_frame)
+
+## Formatting the g_resource data set: merging with foldchange and symbols.
+g_Resource <- merge(g_RB_foldchange, g_R_Symbols , by = 0, all = FALSE)
+g_Resource <- g_Resource[, c(1,3,2)]
+rownames(g_Resource) <- g_Resource$Row.names
+colnames(g_Resource) <- c("Ensign_ID", "Symbols", "Foldchange_Beta")
+
+## Formatting the p_resource data set for promoters.
+p_Resource <- merge(p_RB_foldchange, p_R_Symbols , by = 0, all = FALSE)
+p_Resource <- p_Resource[, c(1,3,2)]
+rownames(p_Resource) <- p_Resource$Row.names
+colnames(p_Resource) <- c("Ensign_ID", "Symbols", "Foldchange_Beta")
+
+## Removal of uneccesary data sets
+remove(g_M_NA_AML, g_M_NA_mon, g_R_Symbols, g_RB_AML_m, g_RB_mon_m, g_RB_foldchange, g_RM_AML_m, g_RM_mon_m, genes_data_frame, promoters_data_frame, f_MtoBeta)
+remove(p_M_NA_AML, p_M_NA_mon, p_R_Symbols, p_RB_AML_m, p_RB_mon_m, p_RB_foldchange, p_RM_AML_m, p_RM_mon_m)
+
+```
