@@ -11,7 +11,7 @@ output:
 
 > Differentially methylated regions (DMRs) ... 
 
-### Annotation for naming of dataframes and functions.
+### Annotation for naming dataframes and functions.
 
  Code      | Annotation
  --------- | ------------------------------------------------------------------
@@ -23,6 +23,7 @@ i,j, y     | vectrors only used by function and loops
 f_[text]   | function
 _cov       | coverage values
 _bed, _bet | beta values
+_Mvalues   | dataset with all reamining genes/ promoters after QC, normalization and imputation
 
 
 ### Loading the data and naming the frames.
@@ -122,29 +123,32 @@ par(mfrow=c(1, 2))
     lines(Y, Q)
 ```
 
-> The curves for both datasets have a very rapid increase by lower coverage values. So this confirms that we can use our above mentioned method and loose a very low percentage of data by cutting away a relatively high percentage of the maximum coverage value, so we can proceed with the anlyis. 
+> The curves for both datasets have a very rapid increase by lower coverage values. So this confirms that we can use our above mentioned method and loose a very low percentage of data by cutting away a relatively high percentage of the maximum coverage value, so we can proceed with the analyis. 
 
 ### Finding the upper threshold - Ultraloop
 
 > For finding the upper threshold we used the ultraloop. The ultraloop calculates the amount of lines which would remain if we were to cut at a given coverage value. The way the ultraloop works, is that it turnes the trustworthy values into NAs and cuts these rows away by a certain coverage threshold. The number of remaining rows is then substracted from the initial number of rows in the dataset. This way it gets faster at every iteration, because the size of the daset is significantly reduced. The output of the ultraloop is a dataset with number of genes/ promoters that would remain. This can be than plotted against the integrated sequences. Finally we can use a kneedle algorithm to find the highest curviture of the slope and define the thresholds. 
+>
+> First we want to create the sequence the ultraloop goes threw (g_sequence_ultraloop). It starts with 25 because this is our bottom threshold. We then took the 200 largest coverage vales from the genes dataset and created a sequence which goes from 25 up to the smallest from the top 200 values. Finally a vector was created with the sequence and the top 200 values combined and named g_sequence_ultraloop. Creatin this sequence was neccesary for the kneedle analysis to work properly. 
 
-#### Creating neccesary datasets for the ultraloop for genes.
+#### Creating the sequence for the ultraloop for genes.
 ```{r, echo=TRUE}
-## Sorting  the previously described g_coverage_all dataset in decreasing order.
+## Sorting the previously described g_coverage_all dataset in decreasing order. g_coverage all seq is defined as the 200 largest coverage values from the genes dataset. 
 g_coverage_all_seq <- sort(g_coverage_all$Coverage, decreasing = TRUE)
 g_coverage_all_seq <- g_coverage_all_seq[1:200]
 g_coverage_all_seq <- sort(g_coverage_all_seq)
 
+## The g_sequence_ultraloop starts at 25 and goes up to the smallest value of the g_coverage_all_seq dataset in steps of 100. Then is goes threw the 200 largest coverage values from the genes dataset. 
 g_sequence_ultraloop <- c(seq(25, min(g_coverage_all_seq), 100), g_coverage_all_seq)
 g_count <- floor(length(g_sequence_ultraloop)/100)
 remove(g_coverage_all_seq)
 
-plot(g_sequence_ultraloop, type = "l")
+plot(g_sequence_ultraloop, type = "l", main = "Sequence the ultraloop goes threw", xlab = "Count", ylab = "Coverage")
 ```
 
-> We create the "analyse" dataset, which is used by the ultaloop. In this dataframe beta values with a corresponding coverage value <25 are set to NAs. 
+> We created the "analyse" dataset, which is used by the ultaloop. In this dataframe beta values with a corresponding coverage value <25 are set to NAs. 
 
-#### Creating the analyse dataset and defining its variables for genes.
+#### Creating the analyse dataset and defining lower threshold as g_lowercov
 ```{r, echo=TRUE}
   ## Defing analyse dataset as g_patients initially. 
   analyse <- g_patients
@@ -153,11 +157,17 @@ plot(g_sequence_ultraloop, type = "l")
   ## Separating data set
   analyse_bet <- analyse[, 1:20]
   analyse_cov <- analyse[, 21:40]
-  
+```
+
+#### Setting the beta values with a corresponding coverge values >25 to NAs
+```{r, echo=TRUE}  
   ## Using the ifelse functions to record which positions in coverage should be NA and setting those positions in beta to NA
   cov_NAs <- ifelse(analyse_cov < g_lowercov, 1, 0)
   analyse_bet[cov_NAs == 1] <- NA
-  
+```
+
+#### Removing rows with more than 3 NAs
+```{r, echo=TRUE}
   ## Recombining and cleaning data set
   analyse <- cbind(analyse_bet, analyse_cov)
   analyse <- analyse[!(rowSums(is.na(analyse[1:10])) > 3 | 
@@ -218,8 +228,10 @@ for (y in g_sequence_ultraloop) {
     break()
   }
 }
+```
 
-## Removing uneccesary data sets
+#### Removing uneccesary data sets
+```{r, echo=TRUE}
 remove(y, g_Ultraloop, nrow_g, analyse, cov_NAs, g_cut, g_Ultraloop_bet, g_Ultraloop_cov, g_lowercov, g_uppercov)
 
 ```
@@ -318,14 +330,20 @@ for (y in p) {
 > Now we want to find the highest curviture of the function of the results. For this we used a code based on the kneedle algorithm. This code draws a line from the first point of the function to the last. Then the distance of the line from the function is calculated at each point and plotted. The peak of this new function delivers the highest curviture of slope. We than determine the coverage value in this point and set it as threshold.
 
 #### Kneedle evaluation for genes
+
+##### Obtaining the results of the ultraloop
 ```{r, echo=TRUE}
+## Creating the g_UltraResults_NA3 dataframe 
   g_UltraResults_NA3 <- data.frame(vector_remaining_genes_per_coverage)
   g_sequence_ultraloop <- g_sequence_ultraloop[1:nrow(g_UltraResults_NA3)]
   g_UltraResults_NA3 <- cbind(g_UltraResults_NA3, g_sequence_ultraloop)
   g_UltraResults_NA3 <- data.frame(g_UltraResults_NA3)
 
   colnames(g_UltraResults_NA3) <- c("Remaining_Genes", "Coverage_Value")
+```
 
+##### Determining kneedle m
+```{r, echo=TRUE}  
 #Determining Kneelde m
   X2 <- max(g_UltraResults_NA3$Coverage_Value)
   X1 <- min(g_UltraResults_NA3$Coverage_Value)
@@ -333,16 +351,20 @@ for (y in p) {
   Y1 <- min(g_UltraResults_NA3$Remaining_Genes)
 
   kneedle.m <- ((Y2-Y1)/(X2-X1))
+```
 
-## Determining Kneedle Line, Kneedle Line to remaining gene count difference and cbinding of kneedle differece and ultraloop results.
+##### Determining kneedle line and kneedle line to remaining gene count difference
+```{r, echo=TRUE}
+## Determining Kneedle Line, Kneedle Line to remaining gene count difference. 
   kneedle.line <- ((g_UltraResults_NA3$Coverage_Value-X1)*kneedle.m)
   g_UltraResults_NA3 <- cbind(g_UltraResults_NA3, kneedle.line)
 
   kneedle.difference <- (g_UltraResults_NA3$Remaining_Genes - g_UltraResults_NA3$kneedle.line)
+## Cbinding of kneedle differece and ultraloop results.  
   g_UltraResults_NA3 <- cbind(g_UltraResults_NA3, kneedle.difference)
 ```
 
-#### Plotting coverge values against ultraloop results with kneedle included.
+#### Plotting coverge values against ultraloop results with kneedle included for genes.
 ```{r, echo=TRUE}
   plot(g_UltraResults_NA3$Coverage_Value, g_UltraResults_NA3$Remaining_Genes, type = "n", xlab = "Upper coverage threshold", ylab = "Remaining rows", main = "Kneedle analysis genes")
   lines(g_UltraResults_NA3$Coverage_Value, g_UltraResults_NA3$Remaining_Genes)
@@ -360,11 +382,12 @@ for (y in p) {
   g_uppercov <- g_UltraResults_NA3[g_uppercov_row,2]
 
   remove(g_uppercov_row, g_count, kneedle.m)
-  print("Upper coverage threshold for genes is"); print(g_uppercov)
+  print(g_uppercov)
 ```
 
 
 #### Kneedle analysis for promoters. 
+
 > Again we used the same procedure for analysing promoters with the kneedle algorithm as genes and plotted the results.  
 
 ```{r, echo=FALSE}
@@ -459,8 +482,10 @@ print(p_uppercov)
   
   promoters_clean <- p_pat_covNA[!(rowSums(is.na(p_pat_covNA[1:10])) > 3 | 
                                      rowSums(is.na(p_pat_covNA[11:20])) > 3),  ]
-  
-  # Removing uneccesary data sets
+``` 
+
+#### Removing uneccesary data sets
+```{r, echo=TRUE} 
   remove(g_lowercov, g_uppercov, g_NAs, g_pat_bet, g_pat_cov, g_pat_covNA, g_patients)
   remove(p_lowercov, p_uppercov, p_NAs, p_pat_bet, p_pat_cov, p_pat_covNA, p_patients)
 
@@ -469,8 +494,7 @@ print(p_uppercov)
 
 # Normalization 
 > In oder to be able to perform a Student t-test later we need to nomalize the data. This was done by converting the beta values to M values. This has many advantages: M values are colse to a normal distribution, range from infinity to negative infinity and have a stable variance. 
-
-> Eqation for imputation: $M =\log_{2}(\frac{\beta}{1-\beta})$
+Eqation for normaliuation: $M =\log_{2}(\frac{\beta}{1-\beta})$
 
 ### Code for normalization
 
@@ -510,7 +534,7 @@ p_M_NA <- data.frame(p_M_NA)
 ```
 
 # Imputation
-> At this point still many NAs remain in the datassets, so we want to handle them. We could either get rid of all lines which still include NAs, or impute them. In order to keep as much information as possible we decided to impute the NAs. There are multiple models to do this and we tested out some on our data to find the best one. The reason we decided to impute after the normalization is ...
+> At this point still many NAs remain in the datassets, so we want to handle them. We could either get rid of all lines which still include NAs, or impute them. In order to keep as much information as possible we decided to impute the NAs. There are multiple models to do this and we tested out some on our data to find the best one. The reason we decided to impute after normalization is that if we were to do it before, the normalized means will differ from the means of the not-imputed M values. 
 
 ### Imputation models
 
@@ -520,7 +544,6 @@ p_M_NA <- data.frame(p_M_NA)
 ```{r, echo = TRUE}
 ## Defing the fg_rnorm10_imputation function.
 fg_rnorm10_imputation <- function(x) {
-  
   
   workingrow <- g_M_NA[x, ]
  
@@ -557,10 +580,6 @@ fg_rnorm10_imputation <- function(x) {
 }
 
 fp_rnorm10_imputation <- function(x) {
-  
-  if(x %% jcount == 0) {
-    cat("|")
-  }
   
   workingrow <- p_M_NA[x, ]
   
@@ -634,7 +653,7 @@ p_M_NA_mon <- p_M_NA[, 11:20]
 
 #### Defining the function f_MtoT
 
-> The function f_MtoT will determine the values required for t-tests later. This includes mean value (m), standard deviation (sd) and number of NAs (n).
+> The function f_MtoT will determine the values required for t-tests later. This includes mean value (m), standard deviation (sd) and number of NAs (n). 
 
 ```{r, echo=TRUE}
 f_MtoT <- function(x) {
@@ -650,13 +669,16 @@ f_MtoT <- function(x) {
 
 #### Application of f_MtoT to genes and promoters
 ```{r, echo=TRUE}
-## Using the appyy function to run f_MtoT
+## Using the apply function to run f_MtoT
   g_T_AML <- t(apply(g_M_NA_AML, 1, f_MtoT))
   g_T_mon <- t(apply(g_M_NA_mon, 1, f_MtoT))
 
   p_T_AML <- t(apply(p_M_NA_AML, 1, f_MtoT))
   p_T_mon <- t(apply(p_M_NA_mon, 1, f_MtoT))
+```
 
+#### Naming and formatting the _T datasets
+```{r, echo = TRUE}
 ## Naming and formatting the g_T and p_T datasets and removing the datasets that are no longer neccesary.
   g_T <- cbind(g_T_AML, g_T_mon)
 colnames(g_T) <- c("Mean AML", "SD AML", "N AML", "Mean Mono", "SD Mono", "N Mono")
@@ -665,16 +687,16 @@ colnames(g_T) <- c("Mean AML", "SD AML", "N AML", "Mean Mono", "SD Mono", "N Mon
   p_T <- cbind(p_T_AML, p_T_mon)
 colnames(p_T) <- c("Mean AML", "SD AML", "N AML", "Mean Mono", "SD Mono", "N Mono")
   p_T <- data.frame(p_T)
-
-  remove(g_T_AML, g_T_mon)
-  remove(p_T_AML, p_T_mon)
-  remove(f_BetaToM, fg_rnorm10_imputation, fp_rnorm10_imputation, f_MtoT)
+## Removing unneccesary datasets.
+  remove(g_T_AML, g_T_mon, p_T_AML, p_T_mon, f_BetaToM, fg_rnorm10_imputation, fp_rnorm10_imputation, f_MtoT)
 ```
 
 ### Generating the resource dataset
 
-> The resource dataset (g_Resource, p_Resource) includes the log2 foldchange, the ensembl ID and the symbols, if available, for genes and promoters each. The foldchange is defined as g_RB_AML_m/g_RB_mon_m in our case. It describes how much the methylation changes among the patient groups in one row. This dataset is useed later to search for the DMR suspects.  
+> The resource dataset (g_Resource, p_Resource) includes the log2 foldchange, the ensembl ID and the symbols, if available, for genes and promoters each. This dataset is used later to search for the DMR suspects.
+The foldchange describes how much the methylation changes among the patient groups in one row. It was calculated by first converting the mean m values back to $\beta$ in each row for one cohort. The reason is why we used the means is that in an M distribution the mean represents the most common i.e normal value from each patients cohort by promoters and genes. Then the newly gained $\beta$-values were devided as AML/Mono. Finally the log2 was calculted from the fraction.   
 
+#### Collecting the mean values by genes and promoters for each patient cohort
 ```{r, echo=TRUE}
 ## Collecting the mean of the m values, as per the m distribution, the mean represents the most common i.e. normal value from each cohort by promoters or genes.
 g_RM_AML_m <- data.frame(apply(g_M_NA_AML, 1, mean, na.rm = TRUE))
@@ -682,25 +704,32 @@ g_RM_mon_m <- data.frame(apply(g_M_NA_mon, 1, mean, na.rm = TRUE))
 
 p_RM_AML_m <- data.frame(apply(p_M_NA_AML, 1, mean, na.rm = TRUE))
 p_RM_mon_m <- data.frame(apply(p_M_NA_mon, 1, mean, na.rm = TRUE))
+```
 
+> Converting mean M values back to beta to be able to calculate the foldchange. For this we used the f_MtoBeta function. Equation: \beta =\frac{2^x}{1+2^x})$
 
+#### Defining the f_MtoBeta function
+```{r, echo=TRUE}
 ## Defining a function that converts the "normal" M value for each sequence's cohort to the corresponding "normal" beta value
 f_MtoBeta <- function(x) {
   
   x = (2^x)/(1 + 2^x)
   return(x)
-  
 }
 ```
 
-> Oddities of the data set resulting from application of the above funtion: if the original gene was 1 for all samples in beta, the result here is 1, even though we changed those 1s to 0.999...9, so r has rounded here. However, genes that were 0 in bet are returned as 0.00...01 here, because we also changed them along the way. R has not rounded here. Very strange but coincidentally convenient for future formatting. Otherwise we wouldve had to set 0.9...9 to 1, and leave 0.0...1 because we can't divide by zero.
+> Oddities of the data set resulting from application of the above funtion: if the original gene had a value of 1 for all samples in beta, the result here is 1, even though we changed those 1s to 0.999...9, so r has rounded here. However, genes that were 0 in bet are returned as 0.00...01 here, because we also changed them along the way. R has not rounded here. Very strange but coincidentally convenient for future formatting. Otherwise we wouldve had to set 0.9...9 to 1, and leave 0.0...1 because we can't divide by zero.
 
+#### Applying the f_MtoBera on the means for each cohort by genes and promoters
 ```{r, echo=TRUE}
 g_RB_AML_m <- apply(g_RM_AML_m, c(1,2), f_MtoBeta)
 g_RB_mon_m <- apply(g_RM_mon_m, c(1,2), f_MtoBeta)
 p_RB_AML_m <- apply(p_RM_AML_m, c(1,2), f_MtoBeta)
 p_RB_mon_m <- apply(p_RM_mon_m, c(1,2), f_MtoBeta)
+```
 
+#### Calculating log2 foldchange and extracting symbols
+```{r, echo=TRUE} 
 ## Calculating log2 foldchange from Mon to AML (so that the "normal" variety / 0 fold change is the healthy one)
 g_RB_foldchange <- log2(g_RB_AML_m/g_RB_mon_m)
 p_RB_foldchange <- log2(p_RB_AML_m/p_RB_mon_m)
@@ -711,21 +740,27 @@ rownames(g_R_Symbols) <- rownames(genes_data_frame)
 
 p_R_Symbols <- data.frame(promoters_data_frame$symbol)
 rownames(p_R_Symbols) <- rownames(promoters_data_frame)
+```
 
-## Formatting the g_resource data set: merging with foldchange and symbols.
+
+#### Formatting the genes resource dataset
+```{r, echo=TRUE}
+## Formatting the g_resource data set: merging with foldchange and symbols
 g_Resource <- merge(g_RB_foldchange, g_R_Symbols , by = 0, all = FALSE)
 g_Resource <- g_Resource[, c(1,3,2)]
 rownames(g_Resource) <- g_Resource$Row.names
-colnames(g_Resource) <- c("Ensign_ID", "Symbols", "Foldchange_Beta")
+colnames(g_Resource) <- c("Ensembl_ID", "Symbols", "Foldchange_Beta")
 
 ## Formatting the p_resource data set for promoters.
 p_Resource <- merge(p_RB_foldchange, p_R_Symbols , by = 0, all = FALSE)
 p_Resource <- p_Resource[, c(1,3,2)]
 rownames(p_Resource) <- p_Resource$Row.names
-colnames(p_Resource) <- c("Ensign_ID", "Symbols", "Foldchange_Beta")
+colnames(p_Resource) <- c("Ensembl_ID", "Symbols", "Foldchange_Beta")
+```
 
+#### Removal of unneccesary datasets
+```{r}
 ## Removal of uneccesary data sets
 remove(g_M_NA_AML, g_M_NA_mon, g_R_Symbols, g_RB_AML_m, g_RB_mon_m, g_RB_foldchange, g_RM_AML_m, g_RM_mon_m, genes_data_frame, promoters_data_frame, f_MtoBeta)
 remove(p_M_NA_AML, p_M_NA_mon, p_R_Symbols, p_RB_AML_m, p_RB_mon_m, p_RB_foldchange, p_RM_AML_m, p_RM_mon_m)
-
 ```
