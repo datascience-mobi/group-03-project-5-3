@@ -2,8 +2,14 @@
 title: "DMR search 2"
 author: "Leo Burmedi, Pierre de Marinis, Konstantin Fischer, Daniel Ürge"
 date: "7/5/2019"
-output: html_document
+output: word_document
+
 ---
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -21,6 +27,7 @@ First we load relevant packages for further analysis and give a reminder as to w
 
 library(qvalue)
 library(knitr)
+
 
 load("~/A. Leo/0. University/4. Semester (2.2 + 4.1)/4.1 FS/Bioinformatik Projekt/z. Local Work/data/Data for Rmarkdown.RData")
 
@@ -109,7 +116,7 @@ In the following we perform two-sided Student t-tests to determine the significa
 
     
 ## (3) checking to make sure the p value distribution is well behaved
-hist(g_T$p_values, 100, main = "Histogramm of P−Values for Genes", xlab="p−values", ylim = c(0, 13000))
+hist(g_T$p_values, 100, main = "Histogramm of P−Values for Genes", xlab="p−values",ylim = c(0, 13000))
 hist(p_T$p_values, 100, main = "Histogramm of P-Values for Promoters", xlab = "p-values", ylim = c(0, 13000))
 
 ```
@@ -132,11 +139,13 @@ The q-value method was drawn from ~~Storey et al~~
 g_T <- g_T[order(g_T$p_values, decreasing = TRUE), ]
 p_T <- p_T[order(p_T$p_values, decreasing = TRUE), ]
  
-## Second, we apply the package loaded earlier to generate two objects that contain the q-values we need
+## Second, we apply the package loaded earlier to generate two objects that contain the 
+## q-values we need
 g_q <- qvalue(p = g_T$p_values)
 p_q <- qvalue(p = p_T$p_values)
 
-## Finally, we bind the q-values to their respective sequences for later reference. We do not remove insignificant sequences yet. in this process we generate new 'Tq' data sets
+## Finally, we bind the q-values to their respective sequences for later reference. We do
+## not remove insignificant sequences yet. in this process we generate new 'Tq' data sets
 g_T_q <- cbind(g_T, g_q$qvalue)
 colnames(g_T_q)[ncol(g_T_q)] <- c("q_values")
 
@@ -211,18 +220,33 @@ We will now remove all sequences with a q-value above 5% and all those that do n
 
 ## Selection for high fold changes and significance
   g_Finale <- g_Finale[g_Finale$q_values <= 0.05, ]
-  g_Finale <- g_Finale[g_Finale$Foldchange_Beta < log2(3/4) | g_Finale$Foldchange_Beta > log2(4/3), ]
+  g_Finale <- g_Finale[g_Finale$Foldchange_Beta < log2(3/4) | 
+                         g_Finale$Foldchange_Beta > log2(4/3), ]
   
   p_Finale <- p_Finale[p_Finale$q_values <= 0.05, ]
-  p_Finale <- p_Finale[p_Finale$Foldchange_Beta < log2(3/4) | p_Finale$Foldchange_Beta > log2(4/3), ]
+  p_Finale <- p_Finale[p_Finale$Foldchange_Beta < log2(3/4) | 
+                         p_Finale$Foldchange_Beta > log2(4/3), ]
 
 ## Sorting the data set for p-values for demonstrative purposes
   g_Finale <- g_Finale[order(g_Finale$p_values, decreasing = TRUE), ]
   p_Finale <- p_Finale[order(p_Finale$p_values, decreasing = TRUE), ]
   
 ## Displaying the number of remainin Sequences
-  print(paste0("Reduced genes data set from ", nrow_gF, " to ", nrow(g_Finale), " sequences, Of which ", ceiling(nrow(g_Finale)*0.05), " are expected to be false discoveries."))
-  print(paste0("Reduced promoters data set from ", nrow_pF, " to ", nrow(p_Finale), " sequences, Of which ", ceiling(nrow(p_Finale)*0.05), " are expected to be false discoveries.")) 
+  print(paste0("Reduced genes data set from ",
+               nrow_gF,
+               " to ",
+               nrow(g_Finale),
+               " sequences, Of which ",
+               ceiling(nrow(g_Finale)*0.05),
+               " are expected to be false discoveries."))
+  
+  print(paste0("Reduced promoters data set from ",
+               nrow_pF,
+               " to ",
+               nrow(p_Finale),
+               " sequences, Of which ",
+               ceiling(nrow(p_Finale)*0.05),
+               " are expected to be false discoveries.")) 
   
 ## Preview of the filtered data sets
   kable(head(g_Finale, n = 1), row.names = FALSE, align = "c")
@@ -295,46 +319,47 @@ These outputs show us multiple trends. For one, the promoter results show a tren
 
 
 
-# Y. Logistical Regression
+# Y. Logistic Regression
 
-While having now reached the end of our search for DMR's, we decided to do a further logistical regression. This could hopefull show us which sequences amongst our candidates are the most cancer related and important in differentiating phenotypes. In order to perform a logistical regression with the greatest accuracy possible, we pool our finale data sets, while removing redundant sequences. Whenever redundant sequences are present, promoter data is preffered, as it has shown a higher quality until now. We state this because the promoters have a lower degree of NAs and much lower upper bound of coverage.  In this manner, the logistical regression model can draw from all present markers to describe cancer related sequences, rather than only differentiating within genes or promoters. This allows  for the opportunity of a broader scope of the information to be included into the model's calculations.
+While having now reached the end of our search for DMR's, we decided to do a further Logistic regression. This could hopefull show us which sequences amongst our candidates are the most cancer related and important in differentiating phenotypes. In order to perform a Logistic regression with the greatest accuracy possible, we pool our finale data sets. In this manner, the Logistic regression model can draw from all present markers to describe cancer related sequences, rather than only differentiating within genes or promoters. This allows  for the opportunity of a broader scope of the information to be included into the model's calculations.
 
 ### Y.1 Creatign a Joint Data Set of Finalists
 
-First we merge each of our final data sets in such a manner that redundacies are set to be promoter data. We then get the Mvalue information for the all the now non-redundant Finalsits and put it all together in a data set along with the assosciated fold change and signficance of each sequence.
+First we merge each of our final data sets in such a manner that we can still recognize which data set each sequence came from. We then get the Mvalue information for the all the now non-redundant Finalsits and put it all together in a data set along with the assosciated fold change and signficance of each sequence.
 
-```{r Logistical Regression Data Sets}
-## Proof that promoters have less NAs
-print(paste0("Genes have an NA rate of ", (length(which(is.na(AML_Mono_list$genes[11:50])))/(nrow(AML_Mono_list$genes)*40))*100, " %."))
-print(paste0("Promoters have an NA rate of ", (length(which(is.na(AML_Mono_list$promoters[11:50])))/(nrow(AML_Mono_list$promoters)*40))*100, " %."))
-
-## Removing redundant items between genes and promoters from genes data frame
-lg_Finale_reduced <- g_Finale[!(rownames(g_Finale) %in% rownames(p_Finale)), ]
-
-print(paste0("Reduced genes data set from ", nrow(g_Finale), " to ", nrow(lg_Finale_reduced), " sequences"))
+```{r Logistic Regression Data Sets}
 
 ## Getting M-value data that corresponds to our non-redundant finalists
-lg_Mvalues <- g_Mvalues[which(rownames(g_Mvalues) %in% rownames(lg_Finale_reduced)), ]
+lg_Mvalues <- g_Mvalues[which(rownames(g_Mvalues) %in% rownames(g_Finale)), ]
 lp_Mvalues <- p_Mvalues[rownames(p_Mvalues) %in% rownames(p_Finale), ]
 
 ## Formatting and combining our data sets
-lg_Mvalues <- cbind(lg_Mvalues, lg_Finale_reduced$p_values, lg_Finale_reduced$Foldchange_Beta)
+lg_Mvalues <- cbind(lg_Mvalues, g_Finale$p_values, 
+                    g_Finale$Foldchange_Beta)
+
 lp_Mvalues <- cbind(lp_Mvalues, p_Finale$p_values, p_Finale$Foldchange_Beta)
 
-colnames(lg_Mvalues) <- c("AML1", "AML2", "AML3", "AML4", "AML5", "AML6", "AML7", "AML8", "AML9", "AML10","Mon1", "Mon2", "Mon3", "Mon4", "Mon5", "Mon6", "Mon7", "Mon8", "Mon9", "Mon10", "p_values", "Foldchange_Beta")
+colnames(lg_Mvalues) <- c("AML1", "AML2", "AML3", "AML4", "AML5", "AML6", "AML7", "AML8",
+                          "AML9", "AML10","Mon1", "Mon2", "Mon3", "Mon4", "Mon5", "Mon6",
+                          "Mon7", "Mon8", "Mon9", "Mon10", "p_values", "Foldchange_Beta")
 
-colnames(lp_Mvalues) <- c("AML1", "AML2", "AML3", "AML4", "AML5", "AML6", "AML7", "AML8", "AML9", "AML10","Mon1", "Mon2", "Mon3", "Mon4", "Mon5", "Mon6", "Mon7", "Mon8", "Mon9", "Mon10", "p_values", "Foldchange_Beta")
+colnames(lp_Mvalues) <- c("AML1", "AML2", "AML3", "AML4", "AML5", "AML6", "AML7", "AML8",
+                          "AML9", "AML10","Mon1", "Mon2", "Mon3", "Mon4", "Mon5", "Mon6",
+                          "Mon7", "Mon8", "Mon9", "Mon10", "p_values", "Foldchange_Beta")
+
+row.names(lg_Mvalues) <- paste0(row.names(lg_Mvalues), c("G"))
+row.names(lp_Mvalues) <- paste0(row.names(lp_Mvalues), c("P"))
 
 l_Finale_Compound <- rbind(lg_Mvalues, lp_Mvalues)
 
 ## Printing the size of new data set
-print(paste0("Combined ", nrow(p_Finale), " and ", nrow(lg_Finale_reduced), " non- redundant sequences and ended up with a combined size of ", nrow(l_Finale_Compound), " sequences."))
+print(paste0("Combined ", nrow(p_Finale), " and ", nrow(g_Finale)," sequences and ended up with a combined size of ",nrow(l_Finale_Compound), " sequences."))
 
 ## Previewing our new data set
-kable(head(l_Finale_Compound[, c(1:5, 11:15, 21:22)], n = 1), align = "c", digits = 3, )
+kable(head(l_Finale_Compound[, c(1:5, 11:15, 21:22)], n = 1), align = "c", digits = 3,)
 
 ## Removing uneccesary data sets
-remove(lg_Finale_reduced, lg_Mvalues, g_Mvalues)
+remove(lg_Mvalues, g_Mvalues)
 remove(lp_Mvalues, p_Mvalues)
 
 ```
@@ -343,11 +368,11 @@ As we can see in the output, we have eliminated 88 Finalist genes and combined t
 
 ### Y.2 Sorting our Compound Data Set
 
-We will now roughly sort our data set by significance and relevance so that the first vaues to be fed to our logistical regression model are the most likely to make a significant impact. The fact that we have so many Finalist Sequences that predominantly have positive Fold-Changes and high significances gives an indication that we might have an issue with too many and too highly correlated data, thus we want to give the highest quality sequences to the model first, as these are our most likely research candidates. Since this model is only meant as an indication of how good our predictors are, it is ok for this ordering to be a bit more rough. After all, we are simply asking "do these top finalists really give us the ability to differentiate phennotypes? Are they really cancer assosciated?". 
+We will now roughly sort our data set by significance and relevance so that the first vaues to be fed to our Logistic regression model are the most likely to make a significant impact. The fact that we have so many Finalist Sequences that predominantly have positive Fold-Changes and high significances gives an indication that we might have an issue with too many and too highly correlated data, thus we want to give the highest quality sequences to the model first, as these are our most likely research candidates. Since this model is only meant as an indication of how good our predictors are, it is ok for this ordering to be a bit more rough. After all, we are simply asking "do these top finalists really give us the ability to differentiate phennotypes? Are they really cancer assosciated?". 
 
-If we can create an accurate model with them, that question will have been answered in the positive, and we will be creatíng a new ranking anyway with the logistical regression data.
+If we can create an accurate model with them, that question will have been answered in the positive, and we will be creatíng a new ranking anyway with the Logistic regression data.
 
-In the process of this sorting we will also take some formatting steps to make our data set ready for the logistical regression.
+In the process of this sorting we will also take some formatting steps to make our data set ready for the Logistic regression.
 
 
 ```{r Compound Data Set Ranking and Formatting}
@@ -359,7 +384,8 @@ In the process of this sorting we will also take some formatting steps to make o
   l_fc_abs <- abs(l_Finale_Compound$Foldchange_Beta)
   l_fc <- rank(-l_fc_abs)
   
-  ## Integrating these rankings with one another to generate an overall evaluation of both relevance and significance
+  ## Integrating these rankings with one another to generate an overall evaluation of
+  ## both relevance and significance
   l_rank <- (l_sig+l_fc)/2
   l_Finale_Compound <- l_Finale_Compound[order(l_rank), 1:20]
   
@@ -369,13 +395,14 @@ In the process of this sorting we will also take some formatting steps to make o
   colnames(l_rank_preview) <- c("Relevance", "Significance", "Rank")
   
   ## Previewing how the ranking worked
-  kable(head(l_rank_preview, n = 4), align = "c", )
+  kable(head(l_rank_preview, n = 4), align = "c" )
   
   ## removing uneccesary datasets
   remove(l_sig, l_fc_abs, l_fc, l_rank_preview)
 
 ## Data Set Formatting
-  ## We now add a top row for phenotype of the patient and set the AML patients to 1 and healthy ones to 0
+  ## We now add a top row for phenotype of the patient and set the AML patients to 1 and
+  ## healthy ones to 0
   l_Finale_Compound <- rbind(c(rep(0, 20)), l_Finale_Compound)
   rownames(l_Finale_Compound)[1] <- c("Phenotype")
   l_Finale_Compound[1, ] <- c(rep(1, 10), rep(0, 10))
@@ -384,7 +411,7 @@ In the process of this sorting we will also take some formatting steps to make o
   l_Finale_Compound <- data.frame(t(l_Finale_Compound))
   
 ## Previewing our new data set
-  kable(head(l_Finale_Compound[c(1:5, 11:15), c(1:6, 11:15)], n = 10), align = "c", col.names = c("Phenotype", rep("Sequence", 10)), digits = 3)
+  kable(head(l_Finale_Compound[c(1:5, 11:15), c(1:4, 12:14)], n = 10), align = "c", col.names = c("Phenotype", rep("Sequence", 6)), digits = 3)
 
 ```
 
@@ -392,7 +419,7 @@ As we can see from the output, the Compounded data set is now transposed, contai
 
 ### Y.3 Calculation and Assessment of Regression Models
 
-In this stage we will perform 2 steps of an analysis. First we will calculate a specific logistical regression model. We will assess it based on its number of regression coeffcients, predictive quality, a few qualities presented in the summary and lastly a type 1 anova.
+In this stage we will perform 2 steps of an analysis. First we will calculate a specific Logistic regression model. We will assess it based on its number of regression coeffcients, predictive quality, a few qualities presented in the summary and lastly a type 1 anova.
 
 In the second step, in order to find out if the qualities of the distinct model are comparable to to the qualities of any other model that is based on differing permutations of training and test data sets, we will be measuring predictive capabilties of 20 models based on 20 different permutations of test and training data sets. The reader should be aware that only the predictive quality is being measured for repeated permutations, this is because the main interest of the inquiry was whether or not such a model could be created and predict accurately. 
 
@@ -404,7 +431,8 @@ The other qualities are not of significant interest, because we are not looking 
 ```{r Regression Coefficients}
 
 ## Generating a logitical regression model for further analysis
-  ## Sampling random rows from our Compound data set, where 70% of a cohort is always in training
+  ## Sampling random rows from our Compound data set, where 70% of a cohort is always in
+  ## training
   set.seed(123)
   
   l_trainseq <- c(sample(seq(1, 10, 1), 7), sample(seq(11, 20, 1), 7))
@@ -451,7 +479,7 @@ l_Model <- glm(Phenotype ~., family = binomial(link = 'logit'), data = l_Finale_
 l_results <- predict(l_Model,newdata=l_Finale_Compound_test,type='response')
 l_results <- ifelse(l_results > 0.5, 1, 0)
 l_accuracy <- mean(l_results == c(1, 1, 1, 0, 0, 0))
-print(paste0("The model assigned the test samples to cohorts with an overall ", 100*l_accuracy, " % accuracy."))
+print(paste0("The model assigned the test samples to cohorts with an overall ",100*l_accuracy, " % accuracy."))
 
 ## Analysing the summary qualities of the model
 summary(l_Model)
@@ -485,8 +513,10 @@ The warnings R produces have been supressed in this code because they overwhelm 
 
 ```{r Single Sequence Models}
 
-## Defining a function that creates the test and training data sets and calculates the accuracy of the resulting model
-## What is important to note is that the only changing input when this function is used is the seed, which is run through 100 different starting conditions
+## Defining a function that creates the test and training data sets and calculates the 
+## accuracy of the resulting model
+## What is important to note is that the only changing input when this function is used
+## is the seed, which is run through 100 different starting conditions
 
 fl_test <- function(x) {
   set.seed(x)
@@ -497,7 +527,7 @@ fl_test <- function(x) {
   l_Finale_Compound_train <- l_Finale_Compound_red[l_trainseq, ]
   l_Finale_Compound_test <- l_Finale_Compound_red[l_testseq, ]
   
-  l_Model <- glm(Phenotype ~., family = binomial(link = 'logit'), data = l_Finale_Compound_test)
+  l_Model <- glm(Phenotype ~., family = binomial(link = 'logit'),data = l_Finale_Compound_test)
   
   l_results <- predict(l_Model,newdata=l_Finale_Compound_test,type='response')
   l_results <- ifelse(l_results > 0.5, 1, 0)
@@ -505,8 +535,8 @@ fl_test <- function(x) {
   return(l_accuracy)
 }
 
-## This for loop will test the predictive accuracy for each sequence for 100 random starting conditions
-## (NB: this calculation may take a while)
+## This for loop will test the predictive accuracy for each sequence for 100 random 
+## starting conditions (NB: this calculation may take a while)
 l_sequence_accuracy <- c()
 
 suppressWarnings(
@@ -527,7 +557,8 @@ suppressWarnings(
 )
 ## Previewing what the accuracy looks like overall
 
-plot(ecdf(l_sequence_accuracy)(seq(0,1, 0.001))*100,seq(0,1, 0.001)*100, type = "l", main = "Overview of Single Sequence Model Accuracy", ylab = "Predictive Accuracy [%]", xlab = "% of Models")
+plot(ecdf(l_sequence_accuracy)(seq(0,1, 0.001))*100,seq(0,1, 0.001)*100,type = "l", main = "Overview of Single Sequence Model Accuracy", ylab = "Predictive Accuracy [%]", xlab = "% of Models")
+
 abline(h = 80, col = "blue")
 abline(v = ecdf(l_sequence_accuracy)(0.8)*100, col = "blue")
 abline(v = ecdf(l_sequence_accuracy)(0.9999999999999999)*100, col = "blue")
@@ -541,7 +572,7 @@ The graph we see here indicates on the y axis a level of accuracy and on the x a
 
 This output shows us that in general our single sequence models perform very well. The incredibly high predictive accuracies show us that most of our sequences show a high degree of separation between the samples. For example, more than 20% of our genes show 100% accuracy over 100 iterations, and over 90% of our values show accuracy above 80%. While this shows that many of our best sequences are similarly accurate, we can still use this as a ranking method for our Finalists.
 
-Most importantly, it is evident that the logistical regression shows that even with a hand tied behind their backs the vast majority of our finalist sequences can be said to be strongly cancer assosciated and can be used as predictive indicators for phenotype within our data set.
+Most importantly, it is evident that the Logistic regression shows that even with a hand tied behind their backs the vast majority of our finalist sequences can be said to be strongly cancer assosciated and can be used as predictive indicators for phenotype within our data set.
 
 ### Y.4 Final Output
 
@@ -549,7 +580,9 @@ We will now rank our finalists and produce the final output of this analysis.
 
 ```{r Ranking our Finalsits}
 
-## Creating the l_Order data set which will order each Sequence by it's corresponding Single Sequence model's predictive accuracy
+## Creating the l_Order data set which will order each Sequence by it's corresponding
+## Single Sequence model's predictive accuracy
+
 l_rank <- sort(l_rank)
 l_Order <- data.frame(cbind(l_sequence_accuracy, l_rank))
 rownames(l_Order) <- colnames(l_Finale_Compound[, 2:ncol(l_Finale_Compound)])
@@ -568,15 +601,21 @@ l_Order <- data.frame(l_Order)
 rownames(l_Order) <- l_Order[, 1]
 
 ## Creating a compounded data set from our finalist data sets
-g_F_reduced <- g_Finale[!(rownames(g_Finale) %in% rownames(p_Finale)), ]
-F_comp <- rbind(g_F_reduced, p_Finale)
+row.names(g_Finale) <- paste0(row.names(g_Finale), c("G"))
+row.names(p_Finale) <- paste0(row.names(p_Finale), c("P"))
+
+F_comp <- rbind(g_Finale, p_Finale)
 F_comp <- F_comp[, c(1,3,4,5)]
-  
+
+# ## Transposing F_comp twice to put dots in its rownames. For some reason transposing our data sets does this and since l_Finale_Compound was transposed (and l_order has identical rownames) we need to transpose F_comp to for the dots to match in both cases
+# F_comp <- t(F_comp)
+# F_comp <- t(F_comp)
+
 ## Merging the compound with the ranks by ensemble IDs
 F_comp <- merge(F_comp, l_Order, by = "row.names", all = TRUE)
 
 ## Formatting
-rownames(F_comp) <- F_comp$Ensembl_ID
+rownames(F_comp) <- F_comp$Row.names
 F_comp <- F_comp[, c(2,3,4,5,7)]
 F_comp$X2 <- as.numeric(F_comp$X2)
 
@@ -588,10 +627,10 @@ F_comp <- F_comp[, c(4,3,1,2)]
 DMRs_AML_Mono <- F_comp
 
 ## Previewing our Output
-kable(head(DMRs_AML_Mono, n = 10), align = "c", row.names = FALSE)
+kable(head(DMRs_AML_Mono, n = 10), align = "c")
 
 ## Removing uneccesary data sets
-remove(l_Order, F_comp, l_Order_Rank, l_Order_Rank_num, g_F_reduced, l_rank, l_sequence_accuracy, l_Finale_Compound, g_Finale, p_Finale)
+remove(l_Order, F_comp, l_Order_Rank, l_Order_Rank_num, l_rank, l_sequence_accuracy, l_Finale_Compound, g_Finale, p_Finale)
 ```
 
 This final output gives us our "top ten" candidate DMRs produced by the analysis, but obviously goes on to include all 1665 finalist sequences. 
