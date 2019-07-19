@@ -1,0 +1,295 @@
+---
+title: "PCA analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+> Principal component analysis was done to reduce our high dimensional datasets after the QC (50000 genes and 55000 promoters) to a smaller number of  genes and promoters with high variance. The variance of a gene or a promotor is linked to biological information. Principal components are created by laying coordinate axes through the dataset in such way that the variance is maximized. In this way we get a lower number of informative dimensions by choosing just informative PC`s. With this method we gain genes with favorable qualities and cohorts can bes separated. 
+First g_Mvalues was transposed, so that all patients are on the y axis and all genes on the x axis. Then the rownames were changed as preparation for the visualization of the PCA with aa ggbiplot, because the group command in ggbiplot groups by similiar rownames in the matrix. Additionally, columns with constant values were removed as a requierment for the PCA. Lastly, the PCA was done.
+
+```{r, echo=TRUE}
+  # Transposing of g_Mvalues, renaming of rownames for grouping in ggbiplot, removing of columns 
+  # containing constant values, running PCA and coercing g_pca to a data frame.
+  g_T_Mvalues <- t(g_Mvalues)
+  rownames(g_T_Mvalues) <- c(rep("AML", times = 10), rep("Mono", times = 10))
+  g_T_Mvalues_clean <- g_T_Mvalues[ , apply(g_T_Mvalues, 2, var) != 0]
+  g_pca <- prcomp(g_T_Mvalues_clean, center = TRUE, scale. = TRUE)
+  g_pca_df <- as.data.frame(g_pca$x)
+```
+
+>In the following lines the same procedure was done for promoters. Just the removing of promoter columns with constant values was unnecessary, because there weren`t any columns with constant values.
+
+```{r, echo=TRUE}
+  p_T_Mvalues <- t(p_Mvalues)
+  rownames(p_T_Mvalues) <- c(rep("AML", times = 10), rep("Mono", times = 10))
+  p_pca <- prcomp(p_T_Mvalues, center = TRUE, scale. = TRUE)
+  p_pca_df <- as.data.frame(p_pca$x)
+```
+
+> Principal components are ranked by the explained variance. The explained proportion of the variance that each PC explaines from the whole variance can be visualized by a scree plot. The first PC clearly explains most of the variance (around 35%). As the second PC is orthogonal to the first PC the explained variance is lower, because the distance of the second PC to each datapoint is different and this distance is used to calculate the variance. In the first scree plot the proportion of the variance explained can be seen whereas the second scree plot shows the cumultative proportion of variance explained. Both of them show the first five PC's out of twenty. In the further analysis a certain number of PC's has to be choosen which explain most of the variance. 
+
+```{r, echo=TRUE}
+ pcaCharts <- function(x) {
+   x.var <- x$sdev ^ 2
+   x.pvar <- x.var/sum(x.var)
+   print("proportions of variance:")
+   print(x.pvar)
+  
+   par(mfrow=c(2,2))
+   plot(x.pvar,xlab="Principal component", ylab="Proportion of variance explained", ylim=c(0,0.5), xlim    = c(1,5), type = 'b')
+   plot(cumsum(x.pvar),xlab="Principal component", ylab="Cumulative proportion of variance explained",  ylim=c(0,1), xlim = c(1,5), type='b')
+ }
+ pcaCharts(g_pca)
+```
+
+> In the next part data frames are created for batch effect detection in genes and promoters. Therefore the dataframes are named g_PC_batch and p_PC_batch. The dataframes contain the first five principal components of genes and promoters, three columns with technical parameters and three columns with biological parameters. The vectors linked to the dataframe after the first five PC's are in the following order: biomaterial provider, first submission date (in days after the first submission date) sequence runs, age of the patients, cell type and sex. Subsequently the columns were named after the referring parameter.
+
+```{r, echo=TRUE}
+ g_PC_batch <- cbind(g_pca_df[,1:5],
+ c(rep("Groningen", times=10), rep("Cambridge", times=4), rep("Nijmegen", times=6)),
+ c(1032,1005,1032,rep(1005, times=7),1184,1184,1032,1032,788,0,788,80,0,0),
+ c(9,10,9,rep(11, times=5),15,11,38,38,38,20,14,4,14,15,17,18),
+ c(32.5,57.5,62.5,67.5,72.5,67.5,67.5,42.5,47.5,67.5,67.5,rep(62.5, times=3),rep(47.5,     times=4),42.5,67.5),
+ c(rep("myeloid", times=10), rep("monocyte", times=10)), 
+ c(rep("Female", times=5),"Male",rep("Female", times=4),"Male","Female","Male","Female",rep("Male", times=5),"Female"))
+ names(g_PC_batch)[6] <- "Provider"
+ names(g_PC_batch)[7] <- "Date"
+ names(g_PC_batch)[8] <- "Runs"
+ names(g_PC_batch)[9] <- "Age"
+ names(g_PC_batch)[10] <- "Cell_type"
+ names(g_PC_batch)[11] <- "Sex"
+ 
+ p_PC_batch <- cbind(p_pca_df[,1:5],
+ c(rep("Groningen", times=10), rep("Cambridge", times=4), rep("Nijmegen", times=6)),
+ c(1032,1005,1032,rep(1005, times=7),1184,1184,1032,1032,788,0,788,80,0,0),
+ c(9,10,9,rep(11, times=5),15,11,38,38,38,20,14,4,14,15,17,18),
+ c(32.5,57.5,62.5,67.5,72.5,67.5,67.5,42.5,47.5,67.5,67.5,rep(62.5, times=3),rep(47.5, times=4),42.5,67.5),
+ c(rep("myeloid", times=10), rep("monocyte", times=10)), 
+ c(rep("Female", times=5),"Male",rep("Female", times=4),"Male","Female","Male","Female",rep("Male", times=5),"Female"))
+ names(p_PC_batch)[6] <- "Provider"
+ names(p_PC_batch)[7] <- "Date"
+ names(p_PC_batch)[8] <- "Runs"
+ names(p_PC_batch)[9] <- "Age"
+ names(p_PC_batch)[10] <- "Cell_type"
+ names(p_PC_batch)[11] <- "Sex"
+```
+
+>Now we can show the datapoints (patients) in the first two PC's (AML in red and Mono in light blue) to see the general distribution of datapoints generated by the PCA and to look for possible batch effects. As an example biomaterial provider as one of the technical parametersr is visualized. The three different biomaterial provider from Cambridge, Groningen and Nijmegen can be detected by the shape of the datapoints. The visualization is done by using ggbiplot. It can be seen that the red points (AML) and light blue points (Mono) are separated. A batch effect is indicated by the separation of the provider groups in the plot. Batch effects in the different PC's will be further analysed with certain statistical tests later on.  
+
+```{r, echo=TRUE}
+ library(ggbiplot)
+ g_pca_small <- data.frame(sample=rownames(g_pca$x), X=g_pca$x[,1], Y=g_pca$x[,2] )
+ ggplot(g_pca_small, aes(X, Y, group = sample, shape = factor(g_PC_batch$Provider))) + 
+ geom_point(size = 2, aes(color = sample))+
+ ggtitle("PCA batch effect")+
+ xlab(paste("PC1"))+
+ ylab(paste("PC2"))
+```
+
+>The same command was run for promoters and showed the same results.
+
+```{r, echo=TRUE}
+ p_pca_small <- data.frame(sample=rownames(p_pca$x), X=p_pca$x[,1], Y=p_pca$x[,2] )
+ ggplot(p_pca_small, aes(X, Y, group = sample, shape = factor(p_PC_batch$Provider))) + 
+ geom_point(size = 2, aes(color = sample))+
+ ggtitle("PCA batch effect")+
+ xlab(paste("PC1"))+
+ ylab(paste("PC2"))
+```
+
+>The next step includes the code for clustering analysis. This code analyses how well two clusters can be seen in the data depending on how much data from PC1 ordered by the absolute influence of it's loadings is used. We choosed kmeans clustering for this purpose and the aim of this method would be the separation of the AML cohort and Monocyte cohort. As preparation we made the absolute values of the loadings (contribution of each variable to the principal components) of PC1 and created a data frame of them. Then we bound the PC1 ranked data frame with the M values.
+
+```{r, echo=TRUE}
+  g_PC1_df <- data.frame(abs(g_pca$rotation[,1]))
+  colnames(g_PC1_df) <- c("g_PC1_df")
+  
+  p_PC1_df <- data.frame(abs(p_pca$rotation[,1]))
+  colnames(p_PC1_df) <- c("p_PC1_df")
+  
+  # Binding PC1 dataframe with the M values for clustering for sequences 
+  g_PC1_M <- merge(g_PC1_df, g_Mvalues, by="row.names")
+  remove(g_PC1_df)
+  
+  p_PC1_M <- merge(p_PC1_df, p_Mvalues, by="row.names")
+  remove(p_PC1_df)
+```
+
+> After that we ordered the column PC1_df with the absolute loading values from the PCA in PC1_M for genes and promoters in a descending order. We also named the rownames in the PC1_M after the names which stand in an extra column created in the merging process. Additionally, we cut off the first two columns (rownames and loadings) as they are not relevant for the further clustering analyses.
+
+```{r, echo=TRUE}
+# ordering and formatting M value data sets appropriately
+  g_PC1_M <- g_PC1_M[order(g_PC1_M$g_PC1_df, decreasing = TRUE),]
+  rownames(g_PC1_M)=g_PC1_M$Row.names
+  g_PC1_M <- g_PC1_M[, 3:22]
+  
+  p_PC1_M <- p_PC1_M[order(p_PC1_M$p_PC1_df, decreasing = TRUE),]
+  rownames(p_PC1_M)=p_PC1_M$Row.names
+  p_PC1_M <- p_PC1_M[, 3:22]
+```
+
+> The next chunk shows the code cluster functions. The name of the function referrs to the point that we build a function which can cluster the genes with the aim of two clusters for our cohorts. The variable x is a choosen percentage of dataset to be analysed in the function. The concrete percentage step we choose will be explained later on. The if loop begins in the first two rows with a little code for a progress bar. So when the function is applied one will see how much the function has already calculated. The next part of the loop defines x as x is increasing in every loop and has a maximum of one hundred. Then a reduced data frame is created which alters with the increasing x. It contains x percent of nrows from the g_PC1_M data frame and all columns. This certain percentage of the dataset will be checked in the next steps for its clustering ability. For kmeans clustering this reduced dataset has to be transposed (g_cluster) and we named the rows after the cohorts. After that kmeans was performed with x as the seed value to gain reproducible output every time we run kmeans. We took two centers because we want to check the separation of our two cohorts AML and Mono. As nstart we took one hundred so the clustering happens one hundred times with random values. The higher the n the higher is the accuracy. The c in the output data frame g_c is referring to clustering. 
+
+```{r, echo=TRUE}
+# defining respective cluster functions
+  fg_cluster <- function(x) {
+    
+    if(x %% jcount == 0) {
+      cat("|")
+    }
+    
+    x <- x/100
+    
+    g_PC1_M_reduced <- g_PC1_M[1:floor(nrow(g_PC1_M)*x), ]
+    g_cluster <- t(g_PC1_M_reduced)
+    rownames(g_cluster) <- c(rep("AML", times = 10), rep("Mono", times = 10))
+    
+    set.seed(x)
+    g_c <- kmeans(g_cluster, centers = 2, nstart = 100)
+    g_c <- c(g_c$cluster, g_c$tot.withinss)
+    
+    return(g_c)
+  }
+```
+
+>The same procedure was done for promoters:
+
+```{r, echo=TRUE}
+fp_cluster <- function(x) {
+    
+    if(x %% jcount == 0) {
+      cat("|")
+    }
+    
+    x <- x/100
+    
+    p_PC1_M_reduced <- p_PC1_M[1:floor(nrow(p_PC1_M)*x), ]
+    p_cluster <- t(p_PC1_M_reduced)
+    rownames(p_cluster) <- c(rep("AML", times = 10), rep("Mono", times = 10))
+    
+    set.seed(x)
+    p_c <- kmeans(p_cluster, centers = 2, nstart = 100)
+    p_c <- c(p_c$cluster, p_c$tot.withinss)
+    
+    return(p_c)
+  }
+```
+
+>The explained cluster functions for promoters and genes are then applied on the data frame j. This data frame contains all numbers from 1 to 100 in the steps of 1. Our input x in the cluster function is therefore defined in j and as we apply the cluster function it will calculate the clusters from one to hundred with increasing x in every loop. jcount referrs to a specific percentage already calculated from all the rows in j. Lastly, the output data frame is converted to have our AML patients and Mono patients in the columns.
+
+```{r, echo=TRUE}
+  j <- data.frame(seq(1, 100, 1))
+  jcount <- floor(nrow(j)/100)
+  g_c <- apply(j, 1, fg_cluster)
+  g_c <- t(g_c)
+  
+  j <- data.frame(seq(1, 100, 1))
+  jcount <- floor(nrow(j)/100)
+  p_c <- apply(j, 1, fp_cluster)
+  p_c <- t(p_c)
+```
+
+> The following part deals with a function which determines the accuracy of the cluster assignment. The next chunk will be expalained with direct comments in the code.
+
+```{r, echo=TRUE}
+  fgc_accuracy <- function(x) {
+    
+#In each row of g_c is the cluster assignment of certain patient to cluster 1 or 2. Workingrow is defined as the row with the cluster assignments referring to a certain percent x. 
+    workingrow <- g_c[x, ]
+#Now which gives an output vector for the assignment of AML patients to cluster 1 and length counts them. The same is done for the columns with the Mono patients and the value is defined as cluster1_assM for the mono patients.
+    cluster1_assA <- length(which(workingrow[1:10] == 1))
+    cluster1_assM <- length(which(workingrow[11:20] == 1))
+#After that each element of the workingrow will be defined as A for AML or M Mono. So if more AML patients are in cluster 1 than Mono patients are in cluster 1 the cluster 1 will be the AML cluster. Then each element which is 1 in the workingrow is named A for AML and each element which is 2 is named M for Mono. If less AML patients are in cluster 1 than Mono patients are in cluster 1 the cluster one will be the Monon cluster. So each 2 in the workingrow is replaced with M and each 2 with M.
+    if(cluster1_assA >= cluster1_assM) {
+      cluster1_ass <- c("A")
+      workingrow[workingrow == 1] <- cluster1_ass
+      cluster2_ass <- c("M")
+      workingrow[workingrow == 2] <- cluster2_ass
+#If less AML patients are in cluster 1 than Mono patients are in cluster 1 else applies and the cluster 1 will be the Mono cluster. So each 1 in the workingrow is replaced with M and each 2 with M.
+    } else {
+      cluster1_ass <- c("M")
+      workingrow[workingrow == 1] <- cluster1_ass
+      cluster2_ass <- c("A")
+      workingrow[workingrow == 2] <- cluster2_ass
+    }
+#If an element in the AML cluster is rightfully assigned as A it will be set True. If on the other hand an element is not belonging to the AML cluster, which would be the case if an element is named M, it is set as False. 
+    workingrow_AML <- workingrow[1:10]
+    workingrow_AML[workingrow_AML == c("A")] <- TRUE 
+    workingrow_AML[workingrow_AML == c("M")] <- FALSE
+#If an element in the Mono cluster is rightfully assigned as M it will be set True. If on the other hand an element is not belonging to the Mono cluster, which would be the case if an element is named A, it is set as False. 
+    workingrow_mon <- workingrow[11:20]
+    workingrow_mon[workingrow_mon == c("M")] <- TRUE
+    workingrow_mon[workingrow_mon == c("A")] <- FALSE 
+#The gained rows are then converted to logical values (0 for False and 1 for True) and the mean is taken and reflects the accuracy of the clustering.
+    workingrow <- as.logical(c(workingrow_AML, workingrow_mon))
+    
+    return(mean(workingrow))
+  }
+```
+
+>The same analyses of the cluster assignment was done for promoters:
+
+```{r, echo=TRUE}
+fpc_accuracy <- function(x) {
+    
+    workingrow <- p_c[x, ]
+    cluster1_assA <- length(which(workingrow[1:10] == 1))
+    cluster1_assM <- length(which(workingrow[11:20] == 1))
+    
+    if(cluster1_assA >= cluster1_assM) {
+      cluster1_ass <- c("A")
+      workingrow[workingrow == 1] <- cluster1_ass
+      cluster2_ass <- c("M")
+      workingrow[workingrow == 2] <- cluster2_ass
+    } else {
+      cluster1_ass <- c("M")
+      workingrow[workingrow == 1] <- cluster1_ass
+      cluster2_ass <- c("A")
+      workingrow[workingrow == 2] <- cluster2_ass
+    }
+    
+    workingrow_AML <- workingrow[1:10]
+    workingrow_AML[workingrow_AML == c("A")] <- TRUE 
+    workingrow_AML[workingrow_AML == c("M")] <- FALSE
+    
+    workingrow_mon <- workingrow[11:20]
+    workingrow_mon[workingrow_mon == c("M")] <- TRUE
+    workingrow_mon[workingrow_mon == c("A")] <- FALSE 
+    
+    workingrow <- as.logical(c(workingrow_AML, workingrow_mon))
+    
+    return(mean(workingrow))
+  }
+```
+
+>The accuracy functions are applied on j and the output is named gc_acc, which contains clustering accuracy values between 0 and 1 for each percentage of the loadings of the PC1 genes. 
+
+```{r, echo=TRUE}
+  j <- data.frame(seq(1, nrow(g_c), 1))
+  gc_acc <- apply(j, 1, fgc_accuracy)
+  View(gc_acc)
+  
+  j <- data.frame(seq(1, nrow(p_c), 1))
+  pc_acc <- apply(j, 1, fpc_accuracy)
+  View(pc_acc)
+```
+
+>The concluding steps are removing of unecessary data sets and plotting the results.
+
+```{r, echo=TRUE}
+    remove(fg_cluster, fgc_accuracy, g_PC1_M, j, jcount)
+    remove(fp_cluster, fpc_accuracy, p_PC1_M)
+    
+    #Plotting WSS
+    plot(g_c[1:20, 21], col = "red", type = "l", xlab = "Percentage of Loadings", ylab = "Total WSS", main = "Clustering     Quality of Genes", ylim =   c(0,200000))
+    plot(p_c[1:52, 21], col = "black", type = "l", xlab = "Percentage of Loadings", ylab = "Total WSS", main =      "Clustering Quality of Promoters")
+    
+    #Plotting clustering accuracy
+    plot(gc_acc, col = "red", type = "l")
+    lines(pc_acc)
+    ```
+
+>The plots for the analyses of clustering quality by WSS show that clustering is not suitable for the separation of our data as the graphs are constantly growing. The clustering accuracy is not high enough for any percentage of genes or promoters. Since we don't want to be stringent with a method that performed poorly, our compromise is to keep 20% of the genes and 52% of promoters. This way we do not lose too much data, but also have data which can be clustered with an acceptable accuracy.
+
